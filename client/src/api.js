@@ -31,6 +31,8 @@ export const api = {
   tighten: (text) => req('POST', '/api/tighten', { text }),
   health: () => req('GET', '/api/health'),
 
+  changelog: () => req('GET', '/api/changelog'),
+
   getSettings: () => req('GET', '/api/settings'),
   saveSettings: (b) => req('PUT', '/api/settings', b),
   openaiModels: () => req('GET', '/api/settings/openai-models'),

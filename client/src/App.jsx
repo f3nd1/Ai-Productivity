@@ -3,10 +3,12 @@ import { api } from './api.js';
 import Initiatives from './tabs/Initiatives.jsx';
 import InitiativePage from './tabs/InitiativePage.jsx';
 import Settings from './tabs/Settings.jsx';
+import ChangeLog from './tabs/ChangeLog.jsx';
 
 const TABS = [
   ['initiatives', 'Initiatives'],
   ['settings', 'Settings'],
+  ['changelog', 'Change Log'],
 ];
 
 export default function App() {
@@ -107,6 +109,7 @@ export default function App() {
         {tab === 'settings' && (
           <Settings onSaved={() => api.health().then(setHealth).catch(() => {})} />
         )}
+        {tab === 'changelog' && <ChangeLog />}
       </main>
     </div>
   );

@@ -2,6 +2,8 @@ import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import path from 'node:path';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
 import { createClient } from '@supabase/supabase-js';
 import OpenAI from 'openai';
@@ -328,6 +330,63 @@ app.post('/api/settings/test-openai', async (_req, res) => {
 app.get('/api/health', async (_req, res) => {
   const cfg = await effectiveConfig();
   res.json({ ok: true, supabase: !!supabase, openai: cfg.enabled && !!cfg.key });
+});
+
+// ---------- Change Log (read-only git history) ----------
+const execFileP = promisify(execFile);
+const repoRoot = path.join(__dirname, '..');
+let changelogCache = { data: null, ts: 0 };
+
+// Whether a commit author is the Claude Code bot vs a real person.
+function authorLabel(email, name) {
+  return /noreply@anthropic\.com|claude/i.test(email || '') ? 'Claude' : name || 'Unknown';
+}
+
+// Parse `git log` output delimited by NUL (between tokens) and 0x1f (between fields).
+// Token layout per commit: <fields>\0<name-only file list>\0 → after split on \0 the
+// tokens alternate [fields, files, fields, files, ...] (index 0 is an empty lead-in).
+function parseGitLog(stdout) {
+  const tokens = stdout.split('\0');
+  const commits = [];
+  for (let i = 1; i < tokens.length; i += 2) {
+    const fields = tokens[i];
+    const filesBlock = tokens[i + 1] || '';
+    const [hash, shortHash, authorDate, email, name, subject, body] = fields.split('\x1f');
+    if (!hash) continue;
+    const files = filesBlock.split('\n').map((s) => s.trim()).filter(Boolean);
+    commits.push({
+      shortHash,
+      authorDate, // ISO 8601
+      subject: subject || '(no subject)',
+      body: (body || '').trim(),
+      author: authorLabel(email, name),
+      files,
+      filesChanged: files.length,
+    });
+  }
+  return commits;
+}
+
+app.get('/api/changelog', async (_req, res) => {
+  if (Date.now() - changelogCache.ts < 60_000 && changelogCache.data) {
+    return res.json(changelogCache.data);
+  }
+  try {
+    // Read-only. Fields separated by 0x1f, commit records bracketed by NUL, with
+    // --name-only appending the file list after each record.
+    const format = '%x00%H%x1f%h%x1f%aI%x1f%ae%x1f%an%x1f%s%x1f%b%x00';
+    const { stdout } = await execFileP(
+      'git',
+      ['log', '-n', '30', '--name-only', `--pretty=format:${format}`],
+      { cwd: repoRoot, maxBuffer: 10 * 1024 * 1024 }
+    );
+    const commits = parseGitLog(stdout);
+    changelogCache = { data: { commits }, ts: Date.now() };
+    res.json({ commits });
+  } catch (e) {
+    // No .git, git not installed, etc. — surface a clear message, not a crash.
+    res.status(500).json({ error: `Could not read git history: ${e.message}` });
+  }
 });
 
 // ---------- Serve built client (production) ----------
