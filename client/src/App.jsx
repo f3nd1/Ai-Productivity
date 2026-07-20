@@ -5,6 +5,7 @@ import SectionC from './tabs/SectionC.jsx';
 import SectionD from './tabs/SectionD.jsx';
 import FinalSubmission from './tabs/FinalSubmission.jsx';
 import Settings from './tabs/Settings.jsx';
+import Export from './tabs/Export.jsx';
 
 const TABS = [
   ['initiatives', 'Initiatives'],
@@ -12,6 +13,7 @@ const TABS = [
   ['sectionD', 'Section D'],
   ['final', 'Final submission'],
   ['settings', 'Settings'],
+  ['export', 'Export'],
 ];
 
 export default function App() {
@@ -95,6 +97,9 @@ export default function App() {
         )}
         {tab === 'settings' && (
           <Settings onSaved={() => api.health().then(setHealth).catch(() => {})} />
+        )}
+        {tab === 'export' && (
+          <Export initiatives={initiatives} results={results} sectionD={sectionD} />
         )}
       </main>
     </div>
