@@ -2,11 +2,13 @@ import { useEffect, useState, useCallback } from 'react';
 import { api } from './api.js';
 import Initiatives from './tabs/Initiatives.jsx';
 import InitiativePage from './tabs/InitiativePage.jsx';
+import Overview from './tabs/Overview.jsx';
 import Settings from './tabs/Settings.jsx';
 import ChangeLog from './tabs/ChangeLog.jsx';
 
 const TABS = [
   ['initiatives', 'Initiatives'],
+  ['overview', 'Overview'],
   ['settings', 'Settings'],
   ['changelog', 'Change Log'],
 ];
@@ -106,6 +108,17 @@ export default function App() {
               onSelect={setSelectedId}
             />
           ))}
+        {tab === 'overview' && (
+          <Overview
+            initiatives={initiatives}
+            results={results}
+            sectionDList={sectionDList}
+            onOpenInitiative={(id) => {
+              setSelectedId(id);
+              setTab('initiatives');
+            }}
+          />
+        )}
         {tab === 'settings' && (
           <Settings onSaved={() => api.health().then(setHealth).catch(() => {})} />
         )}

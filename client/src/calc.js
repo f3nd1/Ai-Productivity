@@ -20,6 +20,7 @@ export function productivity(f) {
     return out;
   }
   const pct = round1((Math.abs(after - before) / before) * 100);
+  out.pct = pct; // raw number for aggregation (Overview); same value shown below
   let label; // 'improvement' | 'reduction'
   if (dir === 'lower') {
     if (after < before) label = 'reduction';
@@ -28,6 +29,7 @@ export function productivity(f) {
     if (after > before) label = 'improvement';
     else out.warning = 'unexpected direction — after value is not higher than before';
   }
+  out.label = label || null;
   out.metrics.push({ label: 'Change', value: `${pct}%` });
   if (label) {
     const verb = label === 'improvement' ? 'Improved' : 'Reduced';
@@ -50,6 +52,8 @@ export function financial(f) {
     if (!Number.isFinite(monthly)) return out;
   }
   const annual = monthly * 12;
+  out.monthly = monthly; // raw numbers for aggregation (Overview); same values shown below
+  out.annual = annual;
   out.metrics.push({ label: 'Monthly saving', value: money(monthly) });
   out.metrics.push({ label: 'Annual saving', value: money(annual) });
 
