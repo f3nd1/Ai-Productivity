@@ -1,44 +1,35 @@
 import { useState } from 'react';
 import { api } from '../api.js';
-import { Q } from '../questions.js';
-import { Btn, Modal, TextInput, NarrativeField } from '../ui.jsx';
+import { Btn } from '../ui.jsx';
 
-const empty = { name: '', b8_problem: '', b9_significance: '', b10_solution: '' };
-
-export default function Initiatives({ initiatives, reload }) {
-  const [editing, setEditing] = useState(null); // form object or null
-  const [saving, setSaving] = useState(false);
+export default function Initiatives({ initiatives, results, sectionDList, reload, onSelect }) {
+  const [creating, setCreating] = useState(false);
   const [err, setErr] = useState(null);
 
-  const openNew = () => {
-    setErr(null);
-    setEditing({ ...empty });
-  };
-  const openEdit = (i) => {
-    setErr(null);
-    setEditing({ ...i });
-  };
-
-  async function save() {
-    if (!editing.b8_problem?.trim()) {
-      setErr('B8 business problem is required.');
-      return;
-    }
-    setSaving(true);
+  // "Add initiative" creates a blank row immediately and opens its page —
+  // B8 is required to save the Initiative details section there, not at
+  // creation time.
+  async function addInitiative() {
+    setCreating(true);
     setErr(null);
     try {
-      if (editing.id) await api.updateInitiative(editing.id, editing);
-      else await api.createInitiative(editing);
-      setEditing(null);
+      const created = await api.createInitiative({
+        name: '',
+        b8_problem: '',
+        b9_significance: '',
+        b10_solution: '',
+      });
       await reload();
+      onSelect(created.id);
     } catch (e) {
       setErr(e.message);
     } finally {
-      setSaving(false);
+      setCreating(false);
     }
   }
 
-  async function del(i) {
+  async function del(i, ev) {
+    ev.stopPropagation();
     if (!confirm(`Delete initiative "${i.name || 'untitled'}" and its results?`)) return;
     try {
       await api.deleteInitiative(i.id);
@@ -48,16 +39,23 @@ export default function Initiatives({ initiatives, reload }) {
     }
   }
 
-  const set = (k) => (v) => setEditing((e) => ({ ...e, [k]: v }));
+  function summary(i) {
+    const count = results.filter((r) => r.initiative_id === i.id).length;
+    const d = sectionDList.find((row) => row.initiative_id === i.id);
+    const bStatus = i.b8_problem?.trim() ? 'B8 complete' : 'B8 missing';
+    const dStatus = d?.d14_narrative?.trim() ? 'Section D complete' : 'Section D incomplete';
+    return `${count} result${count === 1 ? '' : 's'} · ${bStatus} · ${dStatus}`;
+  }
 
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
         <h2 className="text-lg font-semibold text-slate-800">Initiatives</h2>
-        <Btn variant="primary" onClick={openNew}>
-          Add initiative
+        <Btn variant="primary" onClick={addInitiative} disabled={creating}>
+          {creating ? 'Adding…' : 'Add initiative'}
         </Btn>
       </div>
+      {err && <p className="mb-4 text-sm text-red-600">{err}</p>}
 
       {initiatives.length === 0 && (
         <p className="text-sm text-slate-500">No initiatives yet. Add your first AI use case.</p>
@@ -65,50 +63,22 @@ export default function Initiatives({ initiatives, reload }) {
 
       <div className="grid gap-3">
         {initiatives.map((i) => (
-          <div key={i.id} className="rounded-lg border border-slate-200 bg-white p-4">
+          <div
+            key={i.id}
+            onClick={() => onSelect(i.id)}
+            className="cursor-pointer rounded-lg border border-slate-200 bg-white p-4 hover:border-slate-400"
+          >
             <div className="flex items-start justify-between">
               <h3 className="font-medium text-slate-800">{i.name || 'Untitled initiative'}</h3>
-              <div className="flex gap-2">
-                <Btn variant="ghost" onClick={() => openEdit(i)}>
-                  Edit
-                </Btn>
-                <Btn variant="danger" onClick={() => del(i)}>
-                  Delete
-                </Btn>
-              </div>
+              <Btn variant="danger" onClick={(e) => del(i, e)}>
+                Delete
+              </Btn>
             </div>
-            {i.b8_problem && (
-              <p className="mt-2 line-clamp-3 text-sm text-slate-600">{i.b8_problem}</p>
-            )}
+            <p className="mt-1 text-xs text-slate-500">{summary(i)}</p>
+            {i.b8_problem && <p className="mt-2 line-clamp-2 text-sm text-slate-600">{i.b8_problem}</p>}
           </div>
         ))}
       </div>
-
-      {editing && (
-        <Modal
-          title={editing.id ? 'Edit initiative' : 'Add initiative'}
-          onClose={() => setEditing(null)}
-        >
-          <div className="space-y-4">
-            <TextInput
-              label="Initiative name"
-              value={editing.name}
-              onChange={(e) => set('name')(e.target.value)}
-              placeholder="e.g. Claude for Quality Action drafting"
-            />
-            <NarrativeField q={Q.b8} value={editing.b8_problem} onChange={set('b8_problem')} />
-            <NarrativeField q={Q.b9} value={editing.b9_significance} onChange={set('b9_significance')} />
-            <NarrativeField q={Q.b10} value={editing.b10_solution} onChange={set('b10_solution')} />
-            {err && <p className="text-sm text-red-600">{err}</p>}
-            <div className="flex justify-end gap-2">
-              <Btn onClick={() => setEditing(null)}>Cancel</Btn>
-              <Btn variant="primary" onClick={save} disabled={saving}>
-                {saving ? 'Saving…' : 'Save initiative'}
-              </Btn>
-            </div>
-          </div>
-        </Modal>
-      )}
     </div>
   );
 }

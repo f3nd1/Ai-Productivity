@@ -32,7 +32,7 @@ function Suggested({ sentence, onInsert }) {
   );
 }
 
-export default function SectionD({ sectionD, reload }) {
+export default function SectionD({ sectionD, initiativeId, reload }) {
   const [d, setD] = useState(sectionD || {});
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState(null);
@@ -91,7 +91,7 @@ export default function SectionD({ sectionD, reload }) {
         d15_staff_affected: Number.isFinite(staff) ? staff : null,
         d16_narrative: d.d16_narrative || null,
       };
-      await api.saveSectionD(body);
+      await api.saveSectionD(initiativeId, body);
       await reload();
       setSavedAt(true);
       setTimeout(() => setSavedAt(false), 2000);

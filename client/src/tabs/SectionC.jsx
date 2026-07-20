@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { api } from '../api.js';
 import { computeResult } from '../calc.js';
+import { resultsFor } from '../export.js';
 import { Btn, TextInput } from '../ui.jsx';
 
 const TYPE_TAG = {
@@ -155,8 +156,10 @@ function CalcOutput({ type, fields }) {
   );
 }
 
-function ResultCard({ result, initiatives, reload, isNew, onCancelNew }) {
-  const [initiativeId, setInitiativeId] = useState(result.initiative_id || '');
+// `initiativeId` is fixed for the lifetime of this card — the page it lives
+// on is already scoped to one initiative, so there's no cross-initiative
+// dropdown to show or reassign here.
+function ResultCard({ result, initiativeId, reload, isNew, onCancelNew }) {
   const [type, setType] = useState(result.type || 'productivity');
   const [fields, setFields] = useState(result.fields || {});
   const [saving, setSaving] = useState(false);
@@ -165,10 +168,6 @@ function ResultCard({ result, initiatives, reload, isNew, onCancelNew }) {
   const set = (k, v) => setFields((f) => ({ ...f, [k]: v }));
 
   async function save() {
-    if (!initiativeId) {
-      setErr('An initiative must be selected.');
-      return;
-    }
     setSaving(true);
     setErr(null);
     const body = { initiative_id: initiativeId, type, fields, note: fields.note || '' };
@@ -194,15 +193,12 @@ function ResultCard({ result, initiatives, reload, isNew, onCancelNew }) {
     }
   }
 
-  const initName = initiatives.find((i) => i.id === initiativeId)?.name;
-
   return (
     <div className="rounded-lg border border-slate-200 bg-white p-4">
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <span className={`rounded px-2 py-0.5 text-xs font-medium ${TYPE_TAG[type]}`}>
           {TYPE_LABEL[type]}
         </span>
-        {initName && <span className="text-sm text-slate-500">· {initName}</span>}
         <div className="ml-auto flex gap-2">
           <Btn variant="primary" onClick={save} disabled={saving}>
             {saving ? 'Saving…' : isNew ? 'Save result' : 'Save changes'}
@@ -217,35 +213,18 @@ function ResultCard({ result, initiatives, reload, isNew, onCancelNew }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
-        <label className="block">
-          <span className="text-sm font-medium text-slate-700">Initiative *</span>
-          <select
-            className="mt-1 w-full rounded border border-slate-300 px-3 py-1.5 text-sm"
-            value={initiativeId}
-            onChange={(e) => setInitiativeId(e.target.value)}
-          >
-            <option value="">— select initiative —</option>
-            {initiatives.map((i) => (
-              <option key={i.id} value={i.id}>
-                {i.name || 'Untitled initiative'}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="block">
-          <span className="text-sm font-medium text-slate-700">Type</span>
-          <select
-            className="mt-1 w-full rounded border border-slate-300 px-3 py-1.5 text-sm"
-            value={type}
-            onChange={(e) => setType(e.target.value)}
-          >
-            <option value="productivity">Productivity</option>
-            <option value="financial">Financial</option>
-            <option value="operational">Operational</option>
-          </select>
-        </label>
-      </div>
+      <label className="block max-w-xs">
+        <span className="text-sm font-medium text-slate-700">Type</span>
+        <select
+          className="mt-1 w-full rounded border border-slate-300 px-3 py-1.5 text-sm"
+          value={type}
+          onChange={(e) => setType(e.target.value)}
+        >
+          <option value="productivity">Productivity</option>
+          <option value="financial">Financial</option>
+          <option value="operational">Operational</option>
+        </select>
+      </label>
 
       <div className="mt-3">
         <TypeFields type={type} f={fields} set={set} />
@@ -257,79 +236,33 @@ function ResultCard({ result, initiatives, reload, isNew, onCancelNew }) {
   );
 }
 
-export default function SectionC({ initiatives, results, reload }) {
+export default function SectionC({ initiativeId, results, reload }) {
   const [adding, setAdding] = useState(false);
-  const [filterType, setFilterType] = useState('');
-  const [filterInit, setFilterInit] = useState('');
-
-  const shown = useMemo(
-    () =>
-      results.filter(
-        (r) =>
-          (!filterType || r.type === filterType) &&
-          (!filterInit || r.initiative_id === filterInit)
-      ),
-    [results, filterType, filterInit]
-  );
-
-  const noInitiatives = initiatives.length === 0;
+  const shown = useMemo(() => resultsFor(initiativeId, results), [initiativeId, results]);
 
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
         <h2 className="text-lg font-semibold text-slate-800">Section C — measurable results</h2>
-        <Btn variant="primary" onClick={() => setAdding(true)} disabled={noInitiatives || adding}>
+        <Btn variant="primary" onClick={() => setAdding(true)} disabled={adding}>
           Add result
         </Btn>
-      </div>
-
-      {noInitiatives && (
-        <p className="mb-4 text-sm text-amber-700">
-          Add an initiative first — every result must link to one.
-        </p>
-      )}
-
-      <div className="mb-4 flex flex-wrap gap-3">
-        <select
-          className="rounded border border-slate-300 px-3 py-1.5 text-sm"
-          value={filterType}
-          onChange={(e) => setFilterType(e.target.value)}
-        >
-          <option value="">All types</option>
-          <option value="productivity">Productivity</option>
-          <option value="financial">Financial</option>
-          <option value="operational">Operational</option>
-        </select>
-        <select
-          className="rounded border border-slate-300 px-3 py-1.5 text-sm"
-          value={filterInit}
-          onChange={(e) => setFilterInit(e.target.value)}
-        >
-          <option value="">All initiatives</option>
-          {initiatives.map((i) => (
-            <option key={i.id} value={i.id}>
-              {i.name || 'Untitled initiative'}
-            </option>
-          ))}
-        </select>
       </div>
 
       <div className="grid gap-4">
         {adding && (
           <ResultCard
             result={{ type: 'productivity', fields: {} }}
-            initiatives={initiatives}
+            initiativeId={initiativeId}
             reload={reload}
             isNew
             onCancelNew={() => setAdding(false)}
           />
         )}
         {shown.map((r) => (
-          <ResultCard key={r.id} result={r} initiatives={initiatives} reload={reload} />
+          <ResultCard key={r.id} result={r} initiativeId={initiativeId} reload={reload} />
         ))}
-        {!adding && shown.length === 0 && (
-          <p className="text-sm text-slate-500">No results{results.length ? ' match the filters' : ' yet'}.</p>
-        )}
+        {!adding && shown.length === 0 && <p className="text-sm text-slate-500">No results yet.</p>}
       </div>
     </div>
   );

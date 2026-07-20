@@ -64,7 +64,7 @@ function NumField({ label, value, onChange, note }) {
   );
 }
 
-function ExportCard({ initiative, results, sectionD }) {
+export function ExportCard({ initiative, results, sectionD }) {
   const linked = useMemo(() => resultsFor(initiative.id, results), [initiative.id, results]);
   const showNumbers = useMemo(() => hasFinancialResult(linked), [linked]);
 
@@ -94,12 +94,7 @@ function ExportCard({ initiative, results, sectionD }) {
       <div className="space-y-4">
         <TextField label="Finding" value={finding} onChange={setFinding} />
         <TextField label="Root Cause & Resolution" value={rootCause} onChange={setRootCause} />
-        <div>
-          <TextField label="Action Taken" value={actionTaken} onChange={setActionTaken} />
-          <p className="mt-1 text-xs text-slate-500">
-            Shared across all initiatives — edit on the Section D tab if this doesn't fit this specific one.
-          </p>
-        </div>
+        <TextField label="Action Taken" value={actionTaken} onChange={setActionTaken} />
         <TextField label="General Notes" value={generalNotes} onChange={setGeneralNotes} />
       </div>
 
@@ -132,22 +127,3 @@ function ExportCard({ initiative, results, sectionD }) {
   );
 }
 
-export default function Export({ initiatives, results, sectionD }) {
-  return (
-    <div>
-      <h2 className="mb-4 text-lg font-semibold text-slate-800">Export — ERPNext Quality Action Resolution</h2>
-
-      {initiatives.length === 0 ? (
-        <p className="text-sm text-slate-500">
-          No initiatives yet. Add one on the Initiatives tab to generate an export block.
-        </p>
-      ) : (
-        <div className="grid gap-4">
-          {initiatives.map((i) => (
-            <ExportCard key={i.id} initiative={i} results={results} sectionD={sectionD} />
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}

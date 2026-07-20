@@ -1,39 +1,33 @@
 import { useEffect, useState, useCallback } from 'react';
 import { api } from './api.js';
 import Initiatives from './tabs/Initiatives.jsx';
-import SectionC from './tabs/SectionC.jsx';
-import SectionD from './tabs/SectionD.jsx';
-import FinalSubmission from './tabs/FinalSubmission.jsx';
+import InitiativePage from './tabs/InitiativePage.jsx';
 import Settings from './tabs/Settings.jsx';
-import Export from './tabs/Export.jsx';
 
 const TABS = [
   ['initiatives', 'Initiatives'],
-  ['sectionC', 'Section C'],
-  ['sectionD', 'Section D'],
-  ['final', 'Final submission'],
   ['settings', 'Settings'],
-  ['export', 'Export'],
 ];
 
 export default function App() {
   const [tab, setTab] = useState('initiatives');
+  const [selectedId, setSelectedId] = useState(null);
   const [initiatives, setInitiatives] = useState([]);
   const [results, setResults] = useState([]);
-  const [sectionD, setSectionD] = useState(null);
+  const [sectionDList, setSectionDList] = useState([]);
   const [health, setHealth] = useState(null);
   const [loadError, setLoadError] = useState(null);
 
   const reload = useCallback(async () => {
     try {
-      const [inits, res, sd] = await Promise.all([
+      const [inits, res, ds] = await Promise.all([
         api.listInitiatives(),
         api.listResults(),
-        api.getSectionD(),
+        api.listSectionD(),
       ]);
       setInitiatives(inits || []);
       setResults(res || []);
-      setSectionD(sd);
+      setSectionDList(ds || []);
       setLoadError(null);
     } catch (e) {
       setLoadError(e.message);
@@ -44,6 +38,13 @@ export default function App() {
     api.health().then(setHealth).catch(() => setHealth(null));
     reload();
   }, [reload]);
+
+  const selected = selectedId ? initiatives.find((i) => i.id === selectedId) : null;
+
+  function goToTab(key) {
+    setTab(key);
+    if (key === 'initiatives') setSelectedId(null); // re-clicking the tab returns to the list
+  }
 
   return (
     <div className="min-h-screen">
@@ -58,7 +59,7 @@ export default function App() {
           {TABS.map(([key, name]) => (
             <button
               key={key}
-              onClick={() => setTab(key)}
+              onClick={() => goToTab(key)}
               className={`border-b-2 px-4 py-2 text-sm font-medium ${
                 tab === key
                   ? 'border-slate-800 text-slate-800'
@@ -85,21 +86,26 @@ export default function App() {
           </div>
         )}
 
-        {tab === 'initiatives' && (
-          <Initiatives initiatives={initiatives} reload={reload} />
-        )}
-        {tab === 'sectionC' && (
-          <SectionC initiatives={initiatives} results={results} reload={reload} />
-        )}
-        {tab === 'sectionD' && <SectionD sectionD={sectionD} reload={reload} />}
-        {tab === 'final' && (
-          <FinalSubmission initiatives={initiatives} results={results} sectionD={sectionD} />
-        )}
+        {tab === 'initiatives' &&
+          (selected ? (
+            <InitiativePage
+              initiative={selected}
+              results={results}
+              sectionDList={sectionDList}
+              reload={reload}
+              onBack={() => setSelectedId(null)}
+            />
+          ) : (
+            <Initiatives
+              initiatives={initiatives}
+              results={results}
+              sectionDList={sectionDList}
+              reload={reload}
+              onSelect={setSelectedId}
+            />
+          ))}
         {tab === 'settings' && (
           <Settings onSaved={() => api.health().then(setHealth).catch(() => {})} />
-        )}
-        {tab === 'export' && (
-          <Export initiatives={initiatives} results={results} sectionD={sectionD} />
         )}
       </main>
     </div>

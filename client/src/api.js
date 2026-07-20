@@ -23,8 +23,9 @@ export const api = {
   updateResult: (id, b) => req('PUT', `/api/results/${id}`, b),
   deleteResult: (id) => req('DELETE', `/api/results/${id}`),
 
-  getSectionD: () => req('GET', '/api/section-d'),
-  saveSectionD: (b) => req('PUT', '/api/section-d', b),
+  listSectionD: () => req('GET', '/api/section-d'), // bulk, for the Initiatives-list status summary
+  getSectionD: (initiativeId) => req('GET', `/api/initiatives/${initiativeId}/section-d`),
+  saveSectionD: (initiativeId, b) => req('PUT', `/api/initiatives/${initiativeId}/section-d`, b),
 
   draft: (qid, evidence) => req('POST', `/api/draft/${qid}`, { evidence }),
   tighten: (text) => req('POST', '/api/tighten', { text }),
