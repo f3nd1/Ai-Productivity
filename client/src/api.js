@@ -1,11 +1,28 @@
-// All requests are relative: Vite proxies /api to :3001 in dev; Express serves
-// the built client and /api in production.
+// Single point of truth for the API prefix: every request is prefixed with the
+// app's base path (import.meta.env.BASE_URL — '/' in dev, '/ai_impact_builder/'
+// in the subpath deploy). This means no call site needs to know where the app
+// is mounted, and the client works at the domain root or under a subpath alike.
+const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, '');
+
 async function req(method, url, body) {
-  const res = await fetch(url, {
+  const fullUrl = API_BASE + url; // url always begins with '/api/...'
+  const res = await fetch(fullUrl, {
     method,
     headers: body ? { 'Content-Type': 'application/json' } : undefined,
     body: body ? JSON.stringify(body) : undefined,
   });
+  // Defensive guard: a misrouted request (wrong base path or nginx config)
+  // returns the SPA's HTML shell instead of JSON. Fail with a clear, actionable
+  // message rather than the cryptic "Unexpected token '<'" that JSON.parse would
+  // otherwise throw on the HTML below.
+  const contentType = res.headers.get('content-type') || '';
+  if (!contentType.includes('application/json')) {
+    throw new Error(
+      `Expected JSON from ${fullUrl} but received "${contentType || 'no content-type'}" ` +
+        `(HTTP ${res.status}). The API request was likely misrouted — check the app's base ` +
+        `path and the nginx/proxy config.`
+    );
+  }
   const text = await res.text();
   const data = text ? JSON.parse(text) : null;
   if (!res.ok) throw new Error((data && data.error) || `${res.status} ${res.statusText}`);
