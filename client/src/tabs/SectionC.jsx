@@ -1,6 +1,8 @@
 import { computeResult } from '../calc.js';
+import { Q } from '../questions.js';
+import { EVIDENCE_HINT } from '../evidence.js';
 import { useTightenButton, useTightenRegister } from '../tighten.jsx';
-import { Btn, TextInput } from '../ui.jsx';
+import { Btn, TextInput, WordCountCopy } from '../ui.jsx';
 
 const TYPE_TAG = {
   productivity: 'bg-blue-100 text-blue-700',
@@ -202,9 +204,55 @@ function ResultCard({ result, onChange, onDelete, tightenId }) {
   );
 }
 
+// The synthesized C answer box that sits directly under its result group.
+// C11/C12/C13 genuinely synthesise multiple results, so they keep a Generate
+// step (evidence-gated) — unlike the B/D fields whose raw text is the answer.
+function CAnswerBox({ qid, value, onChange, onGenerate, busy, err, hasEvidence }) {
+  return (
+    <div className="mt-3 rounded-lg border border-slate-300 bg-slate-50 p-4">
+      <div className="mb-2 flex items-center justify-between">
+        <h4 className="font-medium text-slate-800">{Q[qid].label}</h4>
+        <div className="flex items-center gap-2">
+          {!hasEvidence && <span className="text-xs italic text-slate-400">{EVIDENCE_HINT[qid]}</span>}
+          <Btn onClick={onGenerate} disabled={busy || !hasEvidence}>
+            {busy ? 'Generating…' : value ? 'Regenerate' : 'Generate'}
+          </Btn>
+        </div>
+      </div>
+      <textarea
+        rows={5}
+        className="w-full rounded border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none"
+        value={value || ''}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="Not generated yet."
+      />
+      <WordCountCopy text={value} />
+      {err && <p className="mt-1 text-xs text-red-600">{err}</p>}
+    </div>
+  );
+}
+
+const GROUPS = [
+  { type: 'productivity', qid: 'c11' },
+  { type: 'financial', qid: 'c12' },
+  { type: 'operational', qid: 'c13' },
+];
+
 // `results` is the page's editable working list for this initiative; edits and
-// add/delete flow up to the page, which persists them on the single Save.
-export default function SectionC({ results, onChange, onAdd, onDelete }) {
+// add/delete flow up to the page. Results are grouped by type, and each group's
+// synthesized C answer box sits directly beneath its cards.
+export default function SectionC({
+  results,
+  onChange,
+  onAdd,
+  onDelete,
+  answers,
+  setAnswers,
+  generate,
+  genBusy,
+  genErr,
+  evidenceHas,
+}) {
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
@@ -214,17 +262,37 @@ export default function SectionC({ results, onChange, onAdd, onDelete }) {
         </Btn>
       </div>
 
-      <div className="grid gap-4">
-        {results.map((r, idx) => (
-          <ResultCard
-            key={r._key || r.id}
-            result={r}
-            onChange={(next) => onChange(idx, next)}
-            onDelete={() => onDelete(idx)}
-            tightenId={100 + idx}
-          />
-        ))}
-        {results.length === 0 && <p className="text-sm text-slate-500">No results yet.</p>}
+      {results.length === 0 && <p className="mb-4 text-sm text-slate-500">No results yet.</p>}
+
+      <div className="space-y-8">
+        {GROUPS.map(({ type, qid }) => {
+          // Keep each card's original index so edit/delete/tighten stay correct.
+          const items = results.map((r, idx) => ({ r, idx })).filter(({ r }) => (r.type || 'productivity') === type);
+          return (
+            <div key={type}>
+              <div className="grid gap-4">
+                {items.map(({ r, idx }) => (
+                  <ResultCard
+                    key={r._key || r.id}
+                    result={r}
+                    onChange={(next) => onChange(idx, next)}
+                    onDelete={() => onDelete(idx)}
+                    tightenId={100 + idx}
+                  />
+                ))}
+              </div>
+              <CAnswerBox
+                qid={qid}
+                value={answers[qid]}
+                onChange={(v) => setAnswers((a) => ({ ...a, [qid]: v }))}
+                onGenerate={() => generate(qid)}
+                busy={genBusy[qid]}
+                err={genErr[qid]}
+                hasEvidence={evidenceHas(qid)}
+              />
+            </div>
+          );
+        })}
       </div>
     </div>
   );

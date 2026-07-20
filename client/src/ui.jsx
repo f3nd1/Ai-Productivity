@@ -1,7 +1,39 @@
+import { useState } from 'react';
 import { useTightenButton, useTightenRegister } from './tighten.jsx';
 
 export function Guidance({ children }) {
   return <p className="mt-1 text-xs text-slate-500">{children}</p>;
+}
+
+export function wordCount(t) {
+  return (t || '').trim().split(/\s+/).filter(Boolean).length;
+}
+
+// Live word count against the 300-word form cap + a Copy button. Shared by the
+// six B/D narrative fields (whose raw text IS their answer) and the C answer boxes.
+export function WordCountCopy({ text }) {
+  const [copied, setCopied] = useState(false);
+  const n = wordCount(text);
+  const over = n > 300;
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(text || '');
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1200);
+    } catch {
+      setCopied(false);
+    }
+  }
+  return (
+    <div className="mt-1 flex items-center justify-between">
+      <span className={`text-xs ${over ? 'font-semibold text-red-600' : 'text-slate-500'}`}>
+        {n} / 300 words{over ? ' — over limit' : ''}
+      </span>
+      <Btn variant="ghost" className="!px-2 !py-1 text-xs" onClick={copy} disabled={!text?.trim()}>
+        {copied ? 'Copied' : 'Copy'}
+      </Btn>
+    </div>
+  );
 }
 
 export function RequiredBadge() {
@@ -68,6 +100,7 @@ export function NarrativeField({ q, value, onChange, tighten = true, tightenId =
         value={value || ''}
         onChange={(e) => onChange(e.target.value)}
       />
+      <WordCountCopy text={value} />
       <Guidance>What to include: {q.include}</Guidance>
       {err && <p className="mt-1 text-xs text-red-600">{err}</p>}
     </div>

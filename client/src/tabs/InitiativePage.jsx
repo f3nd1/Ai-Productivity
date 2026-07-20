@@ -2,13 +2,16 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../api.js';
 import { Q } from '../questions.js';
 import { resultsFor } from '../export.js';
-import { ORDER, hasEvidence, assembleEvidence } from '../evidence.js';
+import { hasEvidence, assembleEvidence } from '../evidence.js';
 import { TightenProvider, runTightenAll } from '../tighten.jsx';
 import { Btn, TextInput, NarrativeField } from '../ui.jsx';
 import SectionC from './SectionC.jsx';
 import SectionD from './SectionD.jsx';
-import FinalSubmission from './FinalSubmission.jsx';
 import { ExportCard } from './Export.jsx';
+
+// C11/C12/C13 are the only questions that still have a Generate step — they
+// synthesise multiple Section C results. B/D answers are their own raw fields.
+const C_ORDER = ['c11', 'c12', 'c13'];
 
 const numOrNull = (v) => {
   if (v === '' || v === null || v === undefined) return null;
@@ -128,7 +131,11 @@ export default function InitiativePage({ initiative, results, sectionDList, relo
     try {
       await api.updateInitiative(initiative.id, cur.info);
       await api.saveSectionD(initiative.id, sectionDBody(cur.dFields));
-      await api.saveFinalAnswers(initiative.id, cur.answers);
+      // Only C11/C12/C13 have a persisted generated answer now; B/D raw fields
+      // are their own answers. Stop writing the six B/D keys going forward.
+      const cAnswers = {};
+      for (const qid of C_ORDER) if (cur.answers[qid] != null) cAnswers[qid] = cur.answers[qid];
+      await api.saveFinalAnswers(initiative.id, cAnswers);
       // Create new results / update existing; collect ids for the created ones.
       const idByKey = {};
       for (const r of cur.cResults) {
@@ -183,12 +190,12 @@ export default function InitiativePage({ initiative, results, sectionDList, relo
     }
   }
 
-  async function generateAll() {
+  async function generateCAnswers() {
     setAllBusy(true);
     setGenSummary(null);
     let gen = 0;
     let skip = 0;
-    for (const qid of ORDER) {
+    for (const qid of C_ORDER) {
       if (!evidenceHas(qid)) {
         skip += 1;
         continue;
@@ -197,7 +204,7 @@ export default function InitiativePage({ initiative, results, sectionDList, relo
       gen += 1;
     }
     setAllBusy(false);
-    setGenSummary(`Generated ${gen} of ${ORDER.length} — ${skip} skipped (no evidence yet)`);
+    setGenSummary(`Generated ${gen} of ${C_ORDER.length} — ${skip} skipped (no evidence yet)`);
     setTimeout(() => setGenSummary(null), 7000);
   }
 
@@ -222,8 +229,8 @@ export default function InitiativePage({ initiative, results, sectionDList, relo
               </span>
             )}
             {saveMsg && <span className="text-sm font-medium text-green-600">{saveMsg}</span>}
-            <Btn onClick={generateAll} disabled={busy}>
-              {allBusy ? 'Generating…' : 'Generate all'}
+            <Btn onClick={generateCAnswers} disabled={busy}>
+              {allBusy ? 'Generating…' : 'Generate C answers'}
             </Btn>
             <Btn onClick={tightenAll} disabled={busy}>
               Tighten all
@@ -239,11 +246,11 @@ export default function InitiativePage({ initiative, results, sectionDList, relo
 
         <InitiativeInfo info={info} setInfo={setInfo} />
 
-        <SectionC results={cResults} onChange={changeResult} onAdd={addResult} onDelete={deleteResult} />
-
-        <SectionD d={dFields} setD={setDFields} />
-
-        <FinalSubmission
+        <SectionC
+          results={cResults}
+          onChange={changeResult}
+          onAdd={addResult}
+          onDelete={deleteResult}
           answers={answers}
           setAnswers={setAnswers}
           generate={generate}
@@ -251,6 +258,8 @@ export default function InitiativePage({ initiative, results, sectionDList, relo
           genErr={genErr}
           evidenceHas={evidenceHas}
         />
+
+        <SectionD d={dFields} setD={setDFields} />
 
         <section>
           <h2 className="mb-2 text-lg font-semibold text-slate-800">
