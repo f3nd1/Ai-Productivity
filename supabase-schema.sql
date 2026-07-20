@@ -21,6 +21,17 @@ create table if not exists results (
   note text
 );
 
+-- Singleton settings row: OpenAI config + persistent organisation context.
+-- Key is stored server-side only (service role); never returned to the browser.
+create table if not exists app_settings (
+  id uuid primary key default gen_random_uuid(),
+  openai_enabled boolean not null default true,
+  openai_key text,
+  analysis_model text,
+  utility_model text,
+  org_context text
+);
+
 create table if not exists section_d (
   id uuid primary key default gen_random_uuid(),
   d14_narrative text,

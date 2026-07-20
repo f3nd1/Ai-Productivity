@@ -29,4 +29,9 @@ export const api = {
   draft: (qid, evidence) => req('POST', `/api/draft/${qid}`, { evidence }),
   tighten: (text) => req('POST', '/api/tighten', { text }),
   health: () => req('GET', '/api/health'),
+
+  getSettings: () => req('GET', '/api/settings'),
+  saveSettings: (b) => req('PUT', '/api/settings', b),
+  openaiModels: () => req('GET', '/api/settings/openai-models'),
+  testOpenai: () => req('POST', '/api/settings/test-openai', {}),
 };

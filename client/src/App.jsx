@@ -4,12 +4,14 @@ import Initiatives from './tabs/Initiatives.jsx';
 import SectionC from './tabs/SectionC.jsx';
 import SectionD from './tabs/SectionD.jsx';
 import FinalSubmission from './tabs/FinalSubmission.jsx';
+import Settings from './tabs/Settings.jsx';
 
 const TABS = [
   ['initiatives', 'Initiatives'],
   ['sectionC', 'Section C'],
   ['sectionD', 'Section D'],
   ['final', 'Final submission'],
+  ['settings', 'Settings'],
 ];
 
 export default function App() {
@@ -90,6 +92,9 @@ export default function App() {
         {tab === 'sectionD' && <SectionD sectionD={sectionD} reload={reload} />}
         {tab === 'final' && (
           <FinalSubmission initiatives={initiatives} results={results} sectionD={sectionD} />
+        )}
+        {tab === 'settings' && (
+          <Settings onSaved={() => api.health().then(setHealth).catch(() => {})} />
         )}
       </main>
     </div>

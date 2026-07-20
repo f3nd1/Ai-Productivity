@@ -37,3 +37,7 @@ cd server && pm2 start index.js                  # serves client/dist + /api
 - **Section C** — measurable results (Productivity / Financial / Operational) with live calculators.
 - **Section D** — single record: staff training, work-process impact, future readiness.
 - **Final submission** — nine OpenAI-drafted, editable, 300-word-capped answers.
+- **Settings** — manage OpenAI key/models/enable toggle and a persistent organisation
+  context (injected into every AI call) from the UI. Key is stored server-side in
+  `app_settings` (service role only) and never returned to the browser; falls back to
+  `OPENAI_API_KEY` from `.env` when unset.

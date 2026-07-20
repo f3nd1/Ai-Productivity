@@ -5,6 +5,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createClient } from '@supabase/supabase-js';
 import OpenAI from 'openai';
+import { maskKey, mergeConfig } from './config.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -22,12 +23,22 @@ if (SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
   console.warn('⚠  Supabase not configured (SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY missing). CRUD endpoints will return 503.');
 }
 
-// --- OpenAI. Stub if not configured. Model: gpt-4o-mini per spec. ---
-let openai = null;
-if (OPENAI_API_KEY) {
-  openai = new OpenAI({ apiKey: OPENAI_API_KEY });
-} else {
-  console.warn('⚠  OpenAI not configured (OPENAI_API_KEY missing). /api/draft and /api/tighten return the raw evidence with a clear notice.');
+// --- OpenAI. The effective key/model/toggle are resolved per request from the
+// app_settings singleton (Settings tab), falling back to OPENAI_API_KEY. ---
+if (!OPENAI_API_KEY) {
+  console.warn('⚠  No OPENAI_API_KEY in env. Configure a key via the Settings tab, or /api/draft and /api/tighten return labelled stubs.');
+}
+
+// Load the singleton settings row (or null). Never throws.
+async function loadSettings() {
+  if (!supabase) return null;
+  const { data } = await supabase.from('app_settings').select('*').limit(1).maybeSingle();
+  return data || null;
+}
+
+// Effective OpenAI config for a request: settings row merged with env fallback.
+async function effectiveConfig() {
+  return mergeConfig(await loadSettings(), OPENAI_API_KEY);
 }
 
 const needDb = (res) =>
@@ -157,12 +168,24 @@ const QUESTION_INTENT = {
   d16: 'Describe key learning points and readiness for deeper future AI use.',
 };
 
-function stubDraft(evidence) {
+function stubDraft(evidence, reason) {
   return (
-    '[AI drafting unavailable — OPENAI_API_KEY not set on the server. ' +
+    `[AI drafting unavailable — ${reason}. ` +
     'The gathered evidence is shown below verbatim so you can edit it by hand.]\n\n' +
     (evidence || '(no evidence provided)')
   );
+}
+
+// Reason string when live AI is not available for a request.
+function offReason(cfg) {
+  return cfg.enabled ? 'no OpenAI API key configured' : 'live AI calls are turned off in Settings';
+}
+
+// Fold persistent organisation context into a system prompt when present.
+function withOrgContext(system, orgContext) {
+  return orgContext
+    ? `${system}\n\nOrganisation context (background about United Ceres College — apply it, do not repeat it verbatim):\n${orgContext}`
+    : system;
 }
 
 app.post('/api/draft/:questionId', async (req, res) => {
@@ -170,13 +193,17 @@ app.post('/api/draft/:questionId', async (req, res) => {
   const intent = QUESTION_INTENT[qid];
   if (!intent) return res.status(400).json({ error: `Unknown question id: ${qid}` });
   const evidence = (req.body && req.body.evidence) || '';
-  if (!openai) return res.json({ text: stubDraft(evidence), stub: true });
+  const cfg = await effectiveConfig();
+  if (!cfg.enabled || !cfg.key) {
+    return res.json({ text: stubDraft(evidence, offReason(cfg)), stub: true });
+  }
   try {
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
+    const client = new OpenAI({ apiKey: cfg.key });
+    const completion = await client.chat.completions.create({
+      model: cfg.analysisModel,
       temperature: 0.4,
       messages: [
-        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'system', content: withOrgContext(SYSTEM_PROMPT, cfg.orgContext) },
         {
           role: 'user',
           content:
@@ -191,21 +218,22 @@ app.post('/api/draft/:questionId', async (req, res) => {
   }
 });
 
+const TIGHTEN_SYSTEM =
+  'Rewrite the user text into a tighter, more professional register for an IMDA SME AI Impact Awards nomination. ' +
+  'Do NOT change any facts, numbers, or claims. Do not add new information. British spelling. Return only the rewritten text.';
+
 app.post('/api/tighten', async (req, res) => {
   const text = (req.body && req.body.text) || '';
   if (!text.trim()) return res.status(400).json({ error: 'No text to tighten.' });
-  if (!openai) return res.json({ text, stub: true });
+  const cfg = await effectiveConfig();
+  if (!cfg.enabled || !cfg.key) return res.json({ text, stub: true });
   try {
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
+    const client = new OpenAI({ apiKey: cfg.key });
+    const completion = await client.chat.completions.create({
+      model: cfg.utilityModel, // lighter task → utility model
       temperature: 0.3,
       messages: [
-        {
-          role: 'system',
-          content:
-            'Rewrite the user text into a tighter, more professional register for an IMDA SME AI Impact Awards nomination. ' +
-            'Do NOT change any facts, numbers, or claims. Do not add new information. British spelling. Return only the rewritten text.',
-        },
+        { role: 'system', content: withOrgContext(TIGHTEN_SYSTEM, cfg.orgContext) },
         { role: 'user', content: text },
       ],
     });
@@ -215,9 +243,75 @@ app.post('/api/tighten', async (req, res) => {
   }
 });
 
-app.get('/api/health', (_req, res) =>
-  res.json({ ok: true, supabase: !!supabase, openai: !!openai })
-);
+// ---------- Settings ----------
+app.get('/api/settings', async (_req, res) => {
+  const s = await loadSettings();
+  const cfg = mergeConfig(s, OPENAI_API_KEY);
+  res.json({
+    openai_enabled: cfg.enabled,
+    analysis_model: cfg.analysisModel,
+    utility_model: cfg.utilityModel,
+    org_context: cfg.orgContext,
+    key_masked: maskKey(cfg.key), // masked only — full key never leaves the server
+    has_key: !!cfg.key,
+    key_source: s && s.openai_key ? 'settings' : OPENAI_API_KEY ? 'env' : 'none',
+    persistable: !!supabase,
+  });
+});
+
+app.put('/api/settings', async (req, res) => {
+  if (!supabase) return needDb(res);
+  const { openai_enabled, analysis_model, utility_model, org_context, openai_key } = req.body || {};
+  const { data: existing } = await supabase.from('app_settings').select('id').limit(1).maybeSingle();
+  const row = {
+    openai_enabled: openai_enabled !== false,
+    analysis_model: analysis_model || 'gpt-4o-mini',
+    utility_model: utility_model || null,
+    org_context: org_context || null,
+  };
+  // Only overwrite the stored key when a new non-empty key is supplied;
+  // an empty/omitted key preserves the existing one (upsert leaves unlisted columns untouched).
+  if (typeof openai_key === 'string' && openai_key.trim()) row.openai_key = openai_key.trim();
+  if (existing) row.id = existing.id;
+  const { error } = await supabase.from('app_settings').upsert(row);
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ ok: true });
+});
+
+// Model list from the account, using the effective key (ignores the enable toggle
+// so models can be picked while live calls are off).
+app.get('/api/settings/openai-models', async (_req, res) => {
+  const cfg = await effectiveConfig();
+  if (!cfg.key) return res.status(400).json({ error: 'No OpenAI key configured (save a key first).' });
+  try {
+    const client = new OpenAI({ apiKey: cfg.key });
+    const list = await client.models.list();
+    res.json({ models: list.data.map((m) => m.id).sort() });
+  } catch (e) {
+    res.status(502).json({ error: e.message });
+  }
+});
+
+app.post('/api/settings/test-openai', async (_req, res) => {
+  const cfg = await effectiveConfig();
+  if (!cfg.key) return res.json({ ok: false, error: 'No OpenAI key configured.' });
+  try {
+    const client = new OpenAI({ apiKey: cfg.key });
+    await client.chat.completions.create({
+      model: cfg.analysisModel,
+      max_tokens: 1,
+      messages: [{ role: 'user', content: 'ping' }],
+    });
+    res.json({ ok: true, model: cfg.analysisModel });
+  } catch (e) {
+    res.json({ ok: false, error: e.message });
+  }
+});
+
+app.get('/api/health', async (_req, res) => {
+  const cfg = await effectiveConfig();
+  res.json({ ok: true, supabase: !!supabase, openai: cfg.enabled && !!cfg.key });
+});
 
 // ---------- Serve built client (production) ----------
 const clientDist = path.join(__dirname, '..', 'client', 'dist');
