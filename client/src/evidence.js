@@ -5,8 +5,19 @@
 import { computeResult } from './calc.js';
 
 export const ORDER = ['b8', 'b9', 'b10', 'c11', 'c12', 'c13', 'd14', 'd15', 'd16'];
+// Only C11/C12/C13 have a persisted generated answer; B/D raw fields are their
+// own answers. This is the exact set written to final_answers.
+export const C_ORDER = ['c11', 'c12', 'c13'];
 const TYPE_FOR = { c11: 'productivity', c12: 'financial', c13: 'operational' };
 const B_FIELD = { b8: 'b8_problem', b9: 'b9_significance', b10: 'b10_solution' };
+
+// The final_answers payload: only C keys that have a value. Skips undefined/null
+// (never-touched) keys and any stale B/D keys from older data.
+export function pickCAnswers(answers) {
+  const out = {};
+  for (const qid of C_ORDER) if (answers && answers[qid] != null) out[qid] = answers[qid];
+  return out;
+}
 
 const filled = (v) => v !== null && v !== undefined && String(v).trim() !== '';
 

@@ -1,6 +1,12 @@
 // node src/evidence.test.mjs
 import assert from 'node:assert';
-import { hasEvidence, assembleEvidence } from './evidence.js';
+import { hasEvidence, assembleEvidence, pickCAnswers } from './evidence.js';
+
+// pickCAnswers: only C keys with values; drops undefined C keys and stale B/D keys.
+assert.deepEqual(pickCAnswers({ c11: 'x', c13: 'y', b8: 'stale', d16: 'stale' }), { c11: 'x', c13: 'y' });
+assert.deepEqual(pickCAnswers({ c11: '' }), { c11: '' }); // cleared (empty string) is kept, not dropped
+assert.deepEqual(pickCAnswers({}), {});
+assert.deepEqual(pickCAnswers(null), {});
 
 const initiative = { b8_problem: 'Manual QA took 20 hours weekly.', b9_significance: '', b10_solution: '' };
 const results = [

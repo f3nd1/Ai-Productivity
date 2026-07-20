@@ -2,16 +2,12 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../api.js';
 import { Q } from '../questions.js';
 import { resultsFor } from '../export.js';
-import { hasEvidence, assembleEvidence } from '../evidence.js';
+import { C_ORDER, hasEvidence, assembleEvidence, pickCAnswers } from '../evidence.js';
 import { TightenProvider, runTightenAll } from '../tighten.jsx';
 import { Btn, TextInput, NarrativeField } from '../ui.jsx';
 import SectionC from './SectionC.jsx';
 import SectionD from './SectionD.jsx';
 import { ExportCard } from './Export.jsx';
-
-// C11/C12/C13 are the only questions that still have a Generate step — they
-// synthesise multiple Section C results. B/D answers are their own raw fields.
-const C_ORDER = ['c11', 'c12', 'c13'];
 
 const numOrNull = (v) => {
   if (v === '' || v === null || v === undefined) return null;
@@ -54,6 +50,7 @@ function InitiativeInfo({ info, setInfo }) {
 export default function InitiativePage({ initiative, results, sectionDList, reload, onBack }) {
   const registryRef = useRef(new Map());
   const savingRef = useRef(false);
+  const generatingRef = useRef(false);
   const autosaveTimer = useRef(null);
   const keyCounter = useRef(0);
 
@@ -131,11 +128,7 @@ export default function InitiativePage({ initiative, results, sectionDList, relo
     try {
       await api.updateInitiative(initiative.id, cur.info);
       await api.saveSectionD(initiative.id, sectionDBody(cur.dFields));
-      // Only C11/C12/C13 have a persisted generated answer now; B/D raw fields
-      // are their own answers. Stop writing the six B/D keys going forward.
-      const cAnswers = {};
-      for (const qid of C_ORDER) if (cur.answers[qid] != null) cAnswers[qid] = cur.answers[qid];
-      await api.saveFinalAnswers(initiative.id, cAnswers);
+      await api.saveFinalAnswers(initiative.id, pickCAnswers(cur.answers));
       // Create new results / update existing; collect ids for the created ones.
       const idByKey = {};
       for (const r of cur.cResults) {
@@ -165,9 +158,26 @@ export default function InitiativePage({ initiative, results, sectionDList, relo
 
   function scheduleAutosave() {
     clearTimeout(autosaveTimer.current);
-    autosaveTimer.current = setTimeout(() => persist(false), 800);
+    // Don't let a blur-triggered autosave run mid-generation — it would persist
+    // an empty/partial final_answers and clobber the answers being generated.
+    autosaveTimer.current = setTimeout(() => {
+      if (generatingRef.current) return;
+      persist(false);
+    }, 800);
   }
   useEffect(() => () => clearTimeout(autosaveTimer.current), []);
+
+  // Persist C answers immediately (independent of the B8-gated whole-page save),
+  // so a reload right after generating keeps them. Takes an explicit answers
+  // object — callers accumulate the just-generated text rather than reading
+  // React state, which may not have re-rendered yet after an await.
+  async function persistAnswers(answersObj) {
+    try {
+      await api.saveFinalAnswers(initiative.id, pickCAnswers(answersObj));
+    } catch (e) {
+      setErr(`Could not save generated answers: ${e.message}`);
+    }
+  }
 
   // ---- Tighten all ----
   async function tightenAll() {
@@ -177,33 +187,58 @@ export default function InitiativePage({ initiative, results, sectionDList, relo
   }
 
   // ---- Generation (evidence-gated; skips questions with no evidence) ----
+  // Returns the generated text (or undefined on error) so callers can persist
+  // the accumulated result without waiting on a React re-render.
   async function generate(qid) {
     setGenBusy((b) => ({ ...b, [qid]: true }));
     setGenErr((e) => ({ ...e, [qid]: null }));
     try {
       const { text } = await api.draft(qid, assembleEvidence(qid, evidenceCtx));
       setAnswers((a) => ({ ...a, [qid]: text }));
+      return text;
     } catch (e) {
       setGenErr((er) => ({ ...er, [qid]: e.message }));
+      return undefined;
     } finally {
       setGenBusy((b) => ({ ...b, [qid]: false }));
     }
   }
 
+  // Per-question Generate button: generate, then persist so it survives a reload
+  // even if the user never clicks the page-level Save.
+  async function runGenerate(qid) {
+    generatingRef.current = true;
+    try {
+      const text = await generate(qid);
+      if (text != null) await persistAnswers({ ...stateRef.current.answers, [qid]: text });
+    } finally {
+      generatingRef.current = false;
+    }
+  }
+
   async function generateCAnswers() {
     setAllBusy(true);
+    generatingRef.current = true;
     setGenSummary(null);
     let gen = 0;
     let skip = 0;
-    for (const qid of C_ORDER) {
-      if (!evidenceHas(qid)) {
-        skip += 1;
-        continue;
+    // Accumulate locally — immune to React render timing during the await loop.
+    const acc = { ...stateRef.current.answers };
+    try {
+      for (const qid of C_ORDER) {
+        if (!evidenceHas(qid)) {
+          skip += 1;
+          continue;
+        }
+        const text = await generate(qid);
+        if (text != null) acc[qid] = text;
+        gen += 1;
       }
-      await generate(qid);
-      gen += 1;
+      if (gen > 0) await persistAnswers(acc); // persist the freshly generated answers
+    } finally {
+      generatingRef.current = false;
+      setAllBusy(false);
     }
-    setAllBusy(false);
     setGenSummary(`Generated ${gen} of ${C_ORDER.length} — ${skip} skipped (no evidence yet)`);
     setTimeout(() => setGenSummary(null), 7000);
   }
@@ -253,7 +288,7 @@ export default function InitiativePage({ initiative, results, sectionDList, relo
           onDelete={deleteResult}
           answers={answers}
           setAnswers={setAnswers}
-          generate={generate}
+          generate={runGenerate}
           genBusy={genBusy}
           genErr={genErr}
           evidenceHas={evidenceHas}
