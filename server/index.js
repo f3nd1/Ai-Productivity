@@ -89,6 +89,31 @@ app.delete('/api/initiatives/:id', async (req, res) => {
   res.json({ ok: true });
 });
 
+// ---------- final answers (jsonb on the initiative row) ----------
+app.get('/api/initiatives/:id/final-answers', async (req, res) => {
+  if (!supabase) return needDb(res);
+  const { data, error } = await supabase
+    .from('initiatives')
+    .select('final_answers')
+    .eq('id', req.params.id)
+    .maybeSingle();
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data?.final_answers || {});
+});
+
+app.put('/api/initiatives/:id/final-answers', async (req, res) => {
+  if (!supabase) return needDb(res);
+  const answers = (req.body && req.body.answers) || {};
+  const { data, error } = await supabase
+    .from('initiatives')
+    .update({ final_answers: answers })
+    .eq('id', req.params.id)
+    .select('final_answers')
+    .single();
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data.final_answers);
+});
+
 // ---------- CRUD: results ----------
 app.get('/api/results', async (_req, res) => {
   if (!supabase) return needDb(res);

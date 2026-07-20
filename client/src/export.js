@@ -32,12 +32,63 @@ export function buildActionTaken(sectionD) {
   return join2(sectionD.d14_narrative, sectionD.d15_narrative);
 }
 
-// d) General Notes: D16 narrative, then each linked result's calculated auto-phrase, one per line.
+// One "Label: value" line, or null when the value is blank/unset (so callers
+// can filter blanks out rather than printing "Label: ").
+function line(label, value) {
+  if (value === '' || value === null || value === undefined) return null;
+  const s = String(value).trim();
+  return s ? `${label}: ${s}` : null;
+}
+
+const DIRECTION_LABEL = { higher: 'Higher is better', lower: 'Lower is better' };
+
+// Labeled "Label: value" lines for one Section C result, skipping unset fields.
+function resultLabelLines(result) {
+  const f = result.fields || {};
+  const type = result.type;
+  const unit = f.unit === 'other' ? f.otherUnit : f.unit;
+  const lines = [
+    line('Result Type', TYPE_LABEL[type]),
+    // Metric name, or Cost Category for Financial results.
+    line('Metric Name', type === 'financial' ? f.costCategory : f.metric),
+    type !== 'financial' ? line('Unit', unit) : null,
+    line('Before Value', f.before),
+    line('After Value', f.after),
+    type === 'productivity' ? line('Direction', DIRECTION_LABEL[f.direction] || f.direction) : null,
+    type === 'financial'
+      ? line('Saving Type', f.timeBased === false ? 'Direct $ saving/month' : 'Time-based saving')
+      : null,
+    type === 'financial' && f.timeBased !== false ? line('Hours Saved per Week', f.hoursPerWeek) : null,
+    type === 'financial' && f.timeBased !== false ? line('Cost Rate ($/hour)', f.rate) : null,
+    type === 'financial' ? line('One-Time/Setup Cost', f.oneTimeCost) : null,
+  ].filter(Boolean);
+  return lines.join('\n');
+}
+
+// d) General Notes: the calculated auto-phrase sentences, then every raw field
+// not already captured elsewhere in the export, as "Label: value" lines
+// (Section D fields incl. D16, then one block per linked Section C result).
 export function buildGeneralNotes(sectionD, linkedResults) {
   const sentences = linkedResults
     .map((r) => computeResult(r.type, r.fields || {}).sentence)
-    .filter(Boolean);
-  return join2(sectionD?.d16_narrative, sentences.join('\n'));
+    .filter(Boolean)
+    .join('\n');
+
+  const d = sectionD || {};
+  const sectionDLines = [
+    line('D16 Future Readiness', d.d16_narrative),
+    line('Staff Trained', d.d14_staff_trained),
+    line('Total Staff', d.d14_total_staff),
+    line('Training Duration (weeks)', d.d14_training_weeks),
+    line('Hours Freed per Week', d.d15_hours_per_week),
+    line('Staff Affected', d.d15_staff_affected),
+  ].filter(Boolean).join('\n');
+
+  const resultBlocks = linkedResults.map(resultLabelLines).filter(Boolean);
+
+  // Sentences first, then Section D labels, then each result block — blank line
+  // between every section for readability.
+  return [sentences, sectionDLines, ...resultBlocks].filter(Boolean).join('\n\n');
 }
 
 // Man-Day Rate (SGD) auto-fill: first linked Financial result with a cost rate, × 8.

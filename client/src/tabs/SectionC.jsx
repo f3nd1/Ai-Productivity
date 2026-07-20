@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { api } from '../api.js';
 import { computeResult } from '../calc.js';
 import { resultsFor } from '../export.js';
+import { useTightenButton, useTightenRegister } from '../tighten.jsx';
 import { Btn, TextInput } from '../ui.jsx';
 
 const TYPE_TAG = {
@@ -30,10 +31,17 @@ function Num({ label, value, onChange, ...rest }) {
   );
 }
 
-function Note({ value, onChange }) {
+function Note({ value, onChange, tightenId }) {
+  const { tighten, busy } = useTightenButton(value, onChange);
+  useTightenRegister(tightenId, tightenId, value, onChange); // order = tightenId (100+; sits between B and D)
   return (
     <label className="block">
-      <span className="text-sm font-medium text-slate-700">Qualitative note</span>
+      <div className="flex items-center justify-between">
+        <span className="text-sm font-medium text-slate-700">Qualitative note</span>
+        <Btn variant="ghost" onClick={tighten} disabled={busy || !value?.trim()}>
+          {busy ? 'Tightening…' : 'Tighten with AI'}
+        </Btn>
+      </div>
       <textarea
         rows={2}
         className="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none"
@@ -45,7 +53,7 @@ function Note({ value, onChange }) {
 }
 
 // Field editors per type. `f` = fields object, `set(key, value)` updates it.
-function TypeFields({ type, f, set }) {
+function TypeFields({ type, f, set, tightenId }) {
   if (type === 'productivity') {
     return (
       <div className="grid grid-cols-2 gap-3">
@@ -65,7 +73,7 @@ function TypeFields({ type, f, set }) {
           </select>
         </label>
         <div className="col-span-2">
-          <Note value={f.note} onChange={(v) => set('note', v)} />
+          <Note value={f.note} onChange={(v) => set('note', v)} tightenId={tightenId} />
         </div>
       </div>
     );
@@ -97,7 +105,7 @@ function TypeFields({ type, f, set }) {
         )}
         <Num label="One-time/setup AI cost (optional)" value={f.oneTimeCost} onChange={(v) => set('oneTimeCost', v)} />
         <div className="col-span-2">
-          <Note value={f.note} onChange={(v) => set('note', v)} />
+          <Note value={f.note} onChange={(v) => set('note', v)} tightenId={tightenId} />
         </div>
       </div>
     );
@@ -127,7 +135,7 @@ function TypeFields({ type, f, set }) {
         <TextInput label="Custom unit" value={f.otherUnit || ''} onChange={(e) => set('otherUnit', e.target.value)} />
       )}
       <div className="col-span-2">
-        <Note value={f.note} onChange={(v) => set('note', v)} />
+        <Note value={f.note} onChange={(v) => set('note', v)} tightenId={tightenId} />
       </div>
     </div>
   );
@@ -159,7 +167,7 @@ function CalcOutput({ type, fields }) {
 // `initiativeId` is fixed for the lifetime of this card — the page it lives
 // on is already scoped to one initiative, so there's no cross-initiative
 // dropdown to show or reassign here.
-function ResultCard({ result, initiativeId, reload, isNew, onCancelNew }) {
+function ResultCard({ result, initiativeId, reload, isNew, onCancelNew, tightenId }) {
   const [type, setType] = useState(result.type || 'productivity');
   const [fields, setFields] = useState(result.fields || {});
   const [saving, setSaving] = useState(false);
@@ -227,7 +235,7 @@ function ResultCard({ result, initiativeId, reload, isNew, onCancelNew }) {
       </label>
 
       <div className="mt-3">
-        <TypeFields type={type} f={fields} set={set} />
+        <TypeFields type={type} f={fields} set={set} tightenId={tightenId} />
       </div>
 
       <CalcOutput type={type} fields={fields} />
@@ -257,10 +265,17 @@ export default function SectionC({ initiativeId, results, reload }) {
             reload={reload}
             isNew
             onCancelNew={() => setAdding(false)}
+            tightenId={199}
           />
         )}
-        {shown.map((r) => (
-          <ResultCard key={r.id} result={r} initiativeId={initiativeId} reload={reload} />
+        {shown.map((r, idx) => (
+          <ResultCard
+            key={r.id}
+            result={r}
+            initiativeId={initiativeId}
+            reload={reload}
+            tightenId={100 + idx}
+          />
         ))}
         {!adding && shown.length === 0 && <p className="text-sm text-slate-500">No results yet.</p>}
       </div>

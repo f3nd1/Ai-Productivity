@@ -116,7 +116,7 @@ export default function SectionD({ sectionD, initiativeId, reload }) {
 
       {/* D14 */}
       <section className="rounded-lg border border-slate-200 bg-white p-4">
-        <NarrativeField q={Q.d14} value={d.d14_narrative} onChange={set('d14_narrative')} />
+        <NarrativeField q={Q.d14} value={d.d14_narrative} onChange={set('d14_narrative')} tightenId={200} tightenOrder={200} />
         <CalcInputs>
           <NumIn label="Staff trained" value={d.d14_staff_trained} onChange={set('d14_staff_trained')} />
           <NumIn label="Total staff" value={d.d14_total_staff} onChange={set('d14_total_staff')} />
@@ -130,7 +130,7 @@ export default function SectionD({ sectionD, initiativeId, reload }) {
 
       {/* D15 */}
       <section className="rounded-lg border border-slate-200 bg-white p-4">
-        <NarrativeField q={Q.d15} value={d.d15_narrative} onChange={set('d15_narrative')} />
+        <NarrativeField q={Q.d15} value={d.d15_narrative} onChange={set('d15_narrative')} tightenId={201} tightenOrder={201} />
         <CalcInputs>
           <NumIn label="Hours freed per week" value={d.d15_hours_per_week} onChange={set('d15_hours_per_week')} />
           <NumIn label="Staff affected" value={d.d15_staff_affected} onChange={set('d15_staff_affected')} />
@@ -146,7 +146,7 @@ export default function SectionD({ sectionD, initiativeId, reload }) {
 
       {/* D16 — narrative only */}
       <section className="rounded-lg border border-slate-200 bg-white p-4">
-        <NarrativeField q={Q.d16} value={d.d16_narrative} onChange={set('d16_narrative')} />
+        <NarrativeField q={Q.d16} value={d.d16_narrative} onChange={set('d16_narrative')} tightenId={202} tightenOrder={202} />
       </section>
 
       {err && <p className="text-sm text-red-600">{err}</p>}

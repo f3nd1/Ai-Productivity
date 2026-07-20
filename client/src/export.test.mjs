@@ -51,9 +51,24 @@ assert.equal(
 );
 
 const generalNotes = buildGeneralNotes(sectionD, linked);
-assert.ok(generalNotes.startsWith('Built internal AI expertise.'));
-assert.ok(generalNotes.includes('Improved process speed by 30%'));
+// Auto-phrase sentences lead.
+assert.ok(generalNotes.startsWith('Improved process speed by 30%'));
 assert.ok(generalNotes.includes('Saved $1,299 monthly in labour'));
+// D16 now included as a labeled line (was the reported gap).
+assert.ok(generalNotes.includes('D16 Future Readiness: Built internal AI expertise.'));
+// Section D numeric labels present only when set (staff numbers not set here → absent).
+assert.ok(!generalNotes.includes('Staff Trained:'));
+// Per-result labeled blocks: productivity + financial.
+assert.ok(generalNotes.includes('Result Type: Productivity'));
+assert.ok(generalNotes.includes('Metric Name: process speed'));
+assert.ok(generalNotes.includes('Before Value: 100'));
+assert.ok(generalNotes.includes('Direction: Higher is better'));
+assert.ok(generalNotes.includes('Result Type: Financial'));
+assert.ok(generalNotes.includes('Metric Name: labour')); // costCategory for financial
+assert.ok(generalNotes.includes('Saving Type: Time-based saving'));
+assert.ok(generalNotes.includes('Cost Rate ($/hour): 30'));
+// Financial has no Unit / Direction lines.
+assert.ok(!/Result Type: Financial[\s\S]*?Direction:/.test(generalNotes));
 
 assert.equal(hasFinancialResult(linked), true);
 assert.equal(hasFinancialResult(resultsFor('i3', results)), false);

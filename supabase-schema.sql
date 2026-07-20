@@ -9,7 +9,8 @@ create table if not exists initiatives (
   name text,
   b8_problem text,
   b9_significance text,
-  b10_solution text
+  b10_solution text,
+  final_answers jsonb not null default '{}'::jsonb
 );
 
 create table if not exists results (
@@ -69,3 +70,12 @@ create unique index if not exists section_d_initiative_id_key on section_d (init
 -- Once every row has been backfilled with a non-null initiative_id (step (a)
 -- above), you may optionally tighten the constraint to match fresh installs:
 --   alter table section_d alter column initiative_id set not null;
+
+-- ============================================================
+-- MIGRATION — run manually, once, in the Supabase SQL editor.
+-- Persist the Final submission generated/edited answers per initiative.
+-- Non-destructive: adds a jsonb column defaulting to an empty object. Existing
+-- initiatives get '{}' and simply show "Not generated yet" until answers are
+-- saved. No existing data is touched.
+-- ============================================================
+alter table initiatives add column if not exists final_answers jsonb not null default '{}'::jsonb;

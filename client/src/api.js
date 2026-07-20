@@ -44,6 +44,10 @@ export const api = {
   getSectionD: (initiativeId) => req('GET', `/api/initiatives/${initiativeId}/section-d`),
   saveSectionD: (initiativeId, b) => req('PUT', `/api/initiatives/${initiativeId}/section-d`, b),
 
+  getFinalAnswers: (initiativeId) => req('GET', `/api/initiatives/${initiativeId}/final-answers`),
+  saveFinalAnswers: (initiativeId, answers) =>
+    req('PUT', `/api/initiatives/${initiativeId}/final-answers`, { answers }),
+
   draft: (qid, evidence) => req('POST', `/api/draft/${qid}`, { evidence }),
   tighten: (text) => req('POST', '/api/tighten', { text }),
   health: () => req('GET', '/api/health'),

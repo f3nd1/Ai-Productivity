@@ -66,13 +66,15 @@ function wordCount(t) {
   return (t || '').trim().split(/\s+/).filter(Boolean).length;
 }
 
-export default function FinalSubmission({ initiatives, results, sectionD }) {
-  const [drafts, setDrafts] = useState({});
+// `answers`/`setAnswers` are owned by the per-initiative page so the answers
+// survive refresh (loaded from / saved to the DB by the page-level Save).
+export default function FinalSubmission({ initiatives, results, sectionD, answers, setAnswers }) {
   const [busy, setBusy] = useState({});
   const [err, setErr] = useState({});
   const [copied, setCopied] = useState(null);
   const [allBusy, setAllBusy] = useState(false);
 
+  const drafts = answers;
   const data = { initiatives, results, sectionD };
 
   async function generate(qid) {
@@ -81,7 +83,7 @@ export default function FinalSubmission({ initiatives, results, sectionD }) {
     try {
       const evidence = assembleEvidence(qid, data);
       const { text } = await api.draft(qid, evidence);
-      setDrafts((d) => ({ ...d, [qid]: text }));
+      setAnswers((d) => ({ ...d, [qid]: text }));
     } catch (e) {
       setErr((er) => ({ ...er, [qid]: e.message }));
     } finally {
@@ -97,7 +99,7 @@ export default function FinalSubmission({ initiatives, results, sectionD }) {
 
   async function copy(qid) {
     try {
-      await navigator.clipboard.writeText(drafts[qid] || '');
+      await navigator.clipboard.writeText((drafts && drafts[qid]) || '');
       setCopied(qid);
       setTimeout(() => setCopied(null), 1500);
     } catch {
@@ -119,7 +121,7 @@ export default function FinalSubmission({ initiatives, results, sectionD }) {
 
       <div className="space-y-5">
         {ORDER.map((qid) => {
-          const text = drafts[qid] || '';
+          const text = (drafts && drafts[qid]) || '';
           const wc = wordCount(text);
           const over = wc > 300;
           return (
@@ -139,7 +141,7 @@ export default function FinalSubmission({ initiatives, results, sectionD }) {
                 rows={5}
                 className="w-full rounded border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none"
                 value={text}
-                onChange={(e) => setDrafts((d) => ({ ...d, [qid]: e.target.value }))}
+                onChange={(e) => setAnswers((d) => ({ ...d, [qid]: e.target.value }))}
                 placeholder="Not generated yet."
               />
               <div className="mt-1 flex items-center justify-between">

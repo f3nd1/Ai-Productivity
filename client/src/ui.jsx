@@ -1,5 +1,4 @@
-import { useState } from 'react';
-import { api } from './api.js';
+import { useTightenButton, useTightenRegister } from './tighten.jsx';
 
 export function Guidance({ children }) {
   return <p className="mt-1 text-xs text-slate-500">{children}</p>;
@@ -42,25 +41,12 @@ export function TextInput({ label, className = '', ...props }) {
   );
 }
 
-// Narrative textarea with label, optional required badge, guidance text, and an
-// optional "Tighten with AI" button (Tabs 1 & 3).
-export function NarrativeField({ q, value, onChange, tighten = true }) {
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState(null);
-
-  async function onTighten() {
-    if (!value || !value.trim()) return;
-    setBusy(true);
-    setErr(null);
-    try {
-      const { text } = await api.tighten(value);
-      onChange(text);
-    } catch (e) {
-      setErr(e.message);
-    } finally {
-      setBusy(false);
-    }
-  }
+// Narrative textarea with label, optional required badge, guidance text, and a
+// "Tighten with AI" button. When tightenId is given it also registers with the
+// page-level tighten registry so "Tighten all" can drive it.
+export function NarrativeField({ q, value, onChange, tighten = true, tightenId = null, tightenOrder = 0 }) {
+  const { tighten: onTighten, busy, err } = useTightenButton(value, onChange);
+  useTightenRegister(tightenId, tightenOrder, value, onChange);
 
   return (
     <div>
