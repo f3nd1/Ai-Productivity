@@ -8,6 +8,7 @@ import {
   buildGeneralNotes,
   financialManDayRateDefault,
   hasFinancialResult,
+  productivityBeforeAfter,
   formatCopyAll,
   copyToClipboard,
 } from './export.js';
@@ -74,6 +75,24 @@ assert.equal(hasFinancialResult(linked), true);
 assert.equal(hasFinancialResult(resultsFor('i3', results)), false);
 assert.equal(financialManDayRateDefault(linked), 240); // 30 * 8
 assert.equal(financialManDayRateDefault(resultsFor('i3', results)), '');
+
+// productivityBeforeAfter: the productivity result here has no unit → time-like → autofill.
+let ba = productivityBeforeAfter(linked);
+assert.equal(ba.before, 100);
+assert.equal(ba.after, 130);
+assert.equal(ba.autofilled, true);
+// A "%" unit is clearly non-time → blank.
+ba = productivityBeforeAfter([{ type: 'productivity', fields: { before: 85, after: 98, unit: '%' } }]);
+assert.equal(ba.before, '');
+assert.equal(ba.autofilled, false);
+// No productivity result → blank.
+ba = productivityBeforeAfter([{ type: 'financial', fields: { rate: 30 } }]);
+assert.equal(ba.autofilled, false);
+// A time unit → autofill.
+ba = productivityBeforeAfter([{ type: 'productivity', fields: { before: 10, after: 6, unit: 'minutes' } }]);
+assert.equal(ba.before, 10);
+assert.equal(ba.after, 6);
+assert.equal(ba.autofilled, true);
 
 // copy-all: with numbers section
 const withNumbers = formatCopyAll(

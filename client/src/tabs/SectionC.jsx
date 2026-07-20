@@ -1,7 +1,4 @@
-import { useMemo, useState } from 'react';
-import { api } from '../api.js';
 import { computeResult } from '../calc.js';
-import { resultsFor } from '../export.js';
 import { useTightenButton, useTightenRegister } from '../tighten.jsx';
 import { Btn, TextInput } from '../ui.jsx';
 
@@ -164,60 +161,22 @@ function CalcOutput({ type, fields }) {
   );
 }
 
-// `initiativeId` is fixed for the lifetime of this card — the page it lives
-// on is already scoped to one initiative, so there's no cross-initiative
-// dropdown to show or reassign here.
-function ResultCard({ result, initiativeId, reload, isNew, onCancelNew, tightenId }) {
-  const [type, setType] = useState(result.type || 'productivity');
-  const [fields, setFields] = useState(result.fields || {});
-  const [saving, setSaving] = useState(false);
-  const [err, setErr] = useState(null);
-
-  const set = (k, v) => setFields((f) => ({ ...f, [k]: v }));
-
-  async function save() {
-    setSaving(true);
-    setErr(null);
-    const body = { initiative_id: initiativeId, type, fields, note: fields.note || '' };
-    try {
-      if (isNew) await api.createResult(body);
-      else await api.updateResult(result.id, body);
-      await reload();
-      if (isNew) onCancelNew();
-    } catch (e) {
-      setErr(e.message);
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function del() {
-    if (!confirm('Delete this result?')) return;
-    try {
-      await api.deleteResult(result.id);
-      await reload();
-    } catch (e) {
-      alert(e.message);
-    }
-  }
+// Fully controlled: edits flow up via onChange so the page-level Save persists
+// them. Delete stays a distinct per-card action (handled by the parent).
+function ResultCard({ result, onChange, onDelete, tightenId }) {
+  const type = result.type || 'productivity';
+  const fields = result.fields || {};
+  const setType = (t) => onChange({ ...result, type: t });
+  const set = (k, v) => onChange({ ...result, fields: { ...fields, [k]: v } });
 
   return (
     <div className="rounded-lg border border-slate-200 bg-white p-4">
       <div className="mb-3 flex flex-wrap items-center gap-2">
-        <span className={`rounded px-2 py-0.5 text-xs font-medium ${TYPE_TAG[type]}`}>
-          {TYPE_LABEL[type]}
-        </span>
-        <div className="ml-auto flex gap-2">
-          <Btn variant="primary" onClick={save} disabled={saving}>
-            {saving ? 'Saving…' : isNew ? 'Save result' : 'Save changes'}
+        <span className={`rounded px-2 py-0.5 text-xs font-medium ${TYPE_TAG[type]}`}>{TYPE_LABEL[type]}</span>
+        <div className="ml-auto">
+          <Btn variant="danger" onClick={onDelete}>
+            Delete
           </Btn>
-          {isNew ? (
-            <Btn onClick={onCancelNew}>Cancel</Btn>
-          ) : (
-            <Btn variant="danger" onClick={del}>
-              Delete
-            </Btn>
-          )}
         </div>
       </div>
 
@@ -239,45 +198,33 @@ function ResultCard({ result, initiativeId, reload, isNew, onCancelNew, tightenI
       </div>
 
       <CalcOutput type={type} fields={fields} />
-      {err && <p className="mt-2 text-sm text-red-600">{err}</p>}
     </div>
   );
 }
 
-export default function SectionC({ initiativeId, results, reload }) {
-  const [adding, setAdding] = useState(false);
-  const shown = useMemo(() => resultsFor(initiativeId, results), [initiativeId, results]);
-
+// `results` is the page's editable working list for this initiative; edits and
+// add/delete flow up to the page, which persists them on the single Save.
+export default function SectionC({ results, onChange, onAdd, onDelete }) {
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
         <h2 className="text-lg font-semibold text-slate-800">Section C — measurable results</h2>
-        <Btn variant="primary" onClick={() => setAdding(true)} disabled={adding}>
+        <Btn variant="primary" onClick={onAdd}>
           Add result
         </Btn>
       </div>
 
       <div className="grid gap-4">
-        {adding && (
+        {results.map((r, idx) => (
           <ResultCard
-            result={{ type: 'productivity', fields: {} }}
-            initiativeId={initiativeId}
-            reload={reload}
-            isNew
-            onCancelNew={() => setAdding(false)}
-            tightenId={199}
-          />
-        )}
-        {shown.map((r, idx) => (
-          <ResultCard
-            key={r.id}
+            key={r._key || r.id}
             result={r}
-            initiativeId={initiativeId}
-            reload={reload}
+            onChange={(next) => onChange(idx, next)}
+            onDelete={() => onDelete(idx)}
             tightenId={100 + idx}
           />
         ))}
-        {!adding && shown.length === 0 && <p className="text-sm text-slate-500">No results yet.</p>}
+        {results.length === 0 && <p className="text-sm text-slate-500">No results yet.</p>}
       </div>
     </div>
   );

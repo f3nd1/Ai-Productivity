@@ -1,5 +1,3 @@
-import { useEffect, useState } from 'react';
-import { api } from '../api.js';
 import { Q } from '../questions.js';
 import { Btn, NarrativeField } from '../ui.jsx';
 
@@ -32,16 +30,9 @@ function Suggested({ sentence, onInsert }) {
   );
 }
 
-export default function SectionD({ sectionD, initiativeId, reload }) {
-  const [d, setD] = useState(sectionD || {});
-  const [saving, setSaving] = useState(false);
-  const [err, setErr] = useState(null);
-  const [savedAt, setSavedAt] = useState(false);
-
-  useEffect(() => {
-    setD(sectionD || {});
-  }, [sectionD]);
-
+// Controlled by the page: `d` holds the Section D fields, `setD` updates them.
+// No own Save button — the page-level Save persists everything together.
+export default function SectionD({ d, setD }) {
   const set = (k) => (v) => setD((s) => ({ ...s, [k]: v }));
 
   // D14 calc
@@ -73,46 +64,9 @@ export default function SectionD({ sectionD, initiativeId, reload }) {
       return { ...s, [key]: cur ? `${cur} ${sentence}.` : `${sentence}.` };
     });
 
-  async function save() {
-    if (!d.d14_narrative?.trim()) {
-      setErr('D14 staff adoption & training narrative is required.');
-      return;
-    }
-    setSaving(true);
-    setErr(null);
-    try {
-      const body = {
-        d14_narrative: d.d14_narrative || null,
-        d14_staff_trained: Number.isFinite(trained) ? trained : null,
-        d14_total_staff: Number.isFinite(total) ? total : null,
-        d14_training_weeks: Number.isFinite(weeks) ? weeks : null,
-        d15_narrative: d.d15_narrative || null,
-        d15_hours_per_week: Number.isFinite(hpw) ? hpw : null,
-        d15_staff_affected: Number.isFinite(staff) ? staff : null,
-        d16_narrative: d.d16_narrative || null,
-      };
-      await api.saveSectionD(initiativeId, body);
-      await reload();
-      setSavedAt(true);
-      setTimeout(() => setSavedAt(false), 2000);
-    } catch (e) {
-      setErr(e.message);
-    } finally {
-      setSaving(false);
-    }
-  }
-
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-slate-800">Section D</h2>
-        <div className="flex items-center gap-3">
-          {savedAt && <span className="text-sm text-green-600">Saved</span>}
-          <Btn variant="primary" onClick={save} disabled={saving}>
-            {saving ? 'Saving…' : 'Save Section D'}
-          </Btn>
-        </div>
-      </div>
+      <h2 className="text-lg font-semibold text-slate-800">Section D</h2>
 
       {/* D14 */}
       <section className="rounded-lg border border-slate-200 bg-white p-4">
@@ -148,8 +102,6 @@ export default function SectionD({ sectionD, initiativeId, reload }) {
       <section className="rounded-lg border border-slate-200 bg-white p-4">
         <NarrativeField q={Q.d16} value={d.d16_narrative} onChange={set('d16_narrative')} tightenId={202} tightenOrder={202} />
       </section>
-
-      {err && <p className="text-sm text-red-600">{err}</p>}
     </div>
   );
 }

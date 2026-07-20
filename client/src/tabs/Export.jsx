@@ -7,6 +7,7 @@ import {
   buildGeneralNotes,
   financialManDayRateDefault,
   hasFinancialResult,
+  productivityBeforeAfter,
   formatCopyAll,
   copyToClipboard,
 } from '../export.js';
@@ -74,9 +75,14 @@ export function ExportCard({ initiative, results, sectionD }) {
   const [actionTaken, setActionTaken] = useState(() => buildActionTaken(sectionD));
   const [generalNotes, setGeneralNotes] = useState(() => buildGeneralNotes(sectionD, linked));
   const [manDayRate, setManDayRate] = useState(() => financialManDayRateDefault(linked));
-  const [beforeTime, setBeforeTime] = useState('');
-  const [afterTime, setAfterTime] = useState('');
+  const ba = useMemo(() => productivityBeforeAfter(linked), [linked]);
+  const [beforeTime, setBeforeTime] = useState(ba.before);
+  const [afterTime, setAfterTime] = useState(ba.after);
   const [cyclePerMonth, setCyclePerMonth] = useState('');
+  const manualNote = 'Not tracked elsewhere in the app — enter manually before copying.';
+  const timeNote = ba.autofilled
+    ? 'Auto-filled from the Productivity result — adjust if the unit isn’t man-days.'
+    : manualNote;
 
   const copyAll = () =>
     formatCopyAll(
@@ -102,24 +108,9 @@ export function ExportCard({ initiative, results, sectionD }) {
         <div className="mt-4 border-t border-slate-200 pt-4">
           <div className="grid grid-cols-2 gap-3">
             <NumField label="Man-Day Rate (SGD)" value={manDayRate} onChange={setManDayRate} />
-            <NumField
-              label="Before Time (Man-Day)"
-              value={beforeTime}
-              onChange={setBeforeTime}
-              note="Not tracked elsewhere in the app — enter manually before copying."
-            />
-            <NumField
-              label="After Time (Man-Day)"
-              value={afterTime}
-              onChange={setAfterTime}
-              note="Not tracked elsewhere in the app — enter manually before copying."
-            />
-            <NumField
-              label="Cycle per Month"
-              value={cyclePerMonth}
-              onChange={setCyclePerMonth}
-              note="Not tracked elsewhere in the app — enter manually before copying."
-            />
+            <NumField label="Before Time (Man-Day)" value={beforeTime} onChange={setBeforeTime} note={timeNote} />
+            <NumField label="After Time (Man-Day)" value={afterTime} onChange={setAfterTime} note={timeNote} />
+            <NumField label="Cycle per Month" value={cyclePerMonth} onChange={setCyclePerMonth} note={manualNote} />
           </div>
         </div>
       )}

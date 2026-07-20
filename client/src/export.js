@@ -101,6 +101,30 @@ export function hasFinancialResult(linkedResults) {
   return linkedResults.some((r) => r.type === 'financial');
 }
 
+// Units that clearly are NOT time, so before/after can't be read as man-days.
+const NON_TIME_UNIT = /%|percent|\bcount\b|error/i;
+function isTimeLikeUnit(unit) {
+  const u = (unit || '').trim();
+  if (!u) return true; // empty/ambiguous → allow fill (editable; user adjusts)
+  return !NON_TIME_UNIT.test(u);
+}
+
+// Before/After Time (Man-Day) auto-fill from a Productivity result with numeric
+// before/after and a time-like unit. Returns { before, after, autofilled }.
+// Blank when there's no such result or its unit clearly isn't a time unit.
+export function productivityBeforeAfter(linkedResults) {
+  const p = linkedResults.find(
+    (r) =>
+      r.type === 'productivity' &&
+      Number.isFinite(Number(r.fields?.before)) &&
+      Number.isFinite(Number(r.fields?.after)) &&
+      r.fields?.before !== '' &&
+      r.fields?.after !== ''
+  );
+  if (!p || !isTimeLikeUnit(p.fields.unit)) return { before: '', after: '', autofilled: false };
+  return { before: Number(p.fields.before), after: Number(p.fields.after), autofilled: true };
+}
+
 // "Copy all as text" block. `numbers` is omitted entirely when the Initiative
 // has no linked Financial result (the numbers section isn't rendered for it).
 export function formatCopyAll({ finding, rootCause, actionTaken, generalNotes }, numbers) {
