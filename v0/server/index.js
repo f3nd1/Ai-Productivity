@@ -58,10 +58,10 @@ app.post('/api/initiatives', async (req, res) => {
   if (!supabase) return needDb(res);
   // No B8 check here: the client now creates a blank initiative immediately
   // and opens its page, where B8 is required before that section can be saved.
-  const { name, department, b8_problem, b9_significance, b10_solution } = req.body;
+  const { name, b8_problem, b9_significance, b10_solution } = req.body;
   const { data, error } = await supabase
     .from('initiatives')
-    .insert({ name, department, b8_problem, b9_significance, b10_solution })
+    .insert({ name, b8_problem, b9_significance, b10_solution })
     .select()
     .single();
   if (error) return res.status(500).json({ error: error.message });
@@ -70,11 +70,11 @@ app.post('/api/initiatives', async (req, res) => {
 
 app.put('/api/initiatives/:id', async (req, res) => {
   if (!supabase) return needDb(res);
-  const { name, department, b8_problem, b9_significance, b10_solution } = req.body;
+  const { name, b8_problem, b9_significance, b10_solution } = req.body;
   if (!b8_problem || !b8_problem.trim()) return res.status(400).json({ error: 'B8 business problem is required.' });
   const { data, error } = await supabase
     .from('initiatives')
-    .update({ name, department, b8_problem, b9_significance, b10_solution })
+    .update({ name, b8_problem, b9_significance, b10_solution })
     .eq('id', req.params.id)
     .select()
     .single();

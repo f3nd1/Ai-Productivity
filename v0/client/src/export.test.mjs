@@ -15,7 +15,6 @@ import {
 
 const initiative = {
   id: 'i1',
-  department: 'Quality Assurance',
   b8_problem: 'Manual QA took 20 hours weekly.',
   b9_significance: 'Lost $5,000 monthly due to overstocking.',
   b10_solution: 'Deployed an ML classifier for QA triage.',
@@ -52,11 +51,10 @@ assert.equal(
   'Trained 8 of 10 staff over 4 weeks.\n\nFreed up 20 hours per week for the team.'
 );
 
-const generalNotes = buildGeneralNotes(sectionD, linked, initiative);
+const generalNotes = buildGeneralNotes(sectionD, linked);
 // Auto-phrase sentences lead.
 assert.ok(generalNotes.startsWith('Improved process speed by 30%'));
 assert.ok(generalNotes.includes('Saved $1,299 monthly in labour'));
-assert.ok(generalNotes.includes('Department: Quality Assurance'));
 // D16 now included as a labeled line (was the reported gap).
 assert.ok(generalNotes.includes('D16 Future Readiness: Built internal AI expertise.'));
 // Section D numeric labels present only when set (staff numbers not set here → absent).

@@ -1,0 +1,8 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Flat, minimal internal tool. No gradients or shadows. */
+body {
+  @apply bg-slate-50 text-slate-800 antialiased;
+}

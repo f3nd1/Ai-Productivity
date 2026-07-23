@@ -3,8 +3,8 @@ import assert from 'node:assert';
 import { computeOverview } from './overview.js';
 
 const initiatives = [
-  { id: 'A', name: 'Alpha', department: 'Quality Assurance', b8_problem: 'x', b9_significance: 'y', b10_solution: '', final_answers: { c11: 'gen' } },
-  { id: 'B', name: 'Beta', department: 'Academic', b8_problem: 'x', b9_significance: '', b10_solution: '', final_answers: {} },
+  { id: 'A', name: 'Alpha', b8_problem: 'x', b9_significance: 'y', b10_solution: '', final_answers: { c11: 'gen' } },
+  { id: 'B', name: 'Beta', b8_problem: 'x', b9_significance: '', b10_solution: '', final_answers: {} },
 ];
 const results = [
   // A: financial time-based 10h*$30*4.33 = 1299/mo, 15588/yr; productivity 100→130 = 30%
@@ -33,7 +33,6 @@ assert.equal(summary.totalD15Hours, 20 + 6); // 5*4 + 2*3 = 26
 
 // --- row A ---
 const a = rows.find((r) => r.id === 'A');
-assert.equal(a.department, 'Quality Assurance');
 assert.deepEqual(a.counts, { productivity: 1, financial: 1, operational: 0 });
 assert.equal(a.monthly, 1299);
 assert.equal(a.avgProductivityPct, 30);
@@ -43,7 +42,6 @@ assert.equal(a.completeness, 6); // b8, b9, c11, d14 narrative, d15 narrative, d
 
 // --- row B ---
 const b = rows.find((r) => r.id === 'B');
-assert.equal(b.department, 'Academic');
 assert.deepEqual(b.counts, { productivity: 1, financial: 1, operational: 1 });
 assert.equal(b.monthly, 1000);
 assert.equal(b.avgProductivityPct, 50);

@@ -65,7 +65,6 @@ export function computeOverview({ initiatives = [], results = [], sectionDList =
     return {
       id: init.id,
       name: init.name || 'Untitled initiative',
-      department: init.department || '',
       counts,
       monthly: hasFinancial ? monthly : null,
       avgProductivityPct: pcts.length ? round1(pcts.reduce((a, b) => a + b, 0) / pcts.length) : null,

@@ -7,9 +7,9 @@ function ModelSelect({ label, hint, value, onChange, options }) {
   const opts = Array.from(new Set([value, 'gpt-4o-mini', ...options].filter(Boolean)));
   return (
     <label className="block">
-      <span className="field-label">{label}</span>
+      <span className="text-sm font-medium text-slate-700">{label}</span>
       <select
-        className="field-control"
+        className="mt-1 w-full rounded border border-slate-300 px-3 py-1.5 text-sm"
         value={value}
         onChange={(e) => onChange(e.target.value)}
       >
@@ -112,24 +112,18 @@ export default function Settings({ onSaved }) {
 
   return (
     <div className="space-y-6">
-      <div>
-        <p className="eyebrow">Application control</p>
-        <h2 className="section-title mt-1">Settings</h2>
-      </div>
+      <h2 className="text-lg font-semibold text-slate-800">Settings</h2>
 
       {loaded && !loaded.persistable && (
-        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 shadow-sm">
+        <div className="rounded border border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-800">
           Supabase is not configured, so settings cannot be saved. They will fall back to server
           environment variables.
         </div>
       )}
 
       {/* OpenAI configuration */}
-      <section className="app-card space-y-5 p-5 sm:p-6">
-        <div>
-          <p className="eyebrow">AI connection</p>
-          <h3 className="mt-1 text-lg font-semibold text-slate-950">OpenAI configuration</h3>
-        </div>
+      <section className="space-y-4 rounded-lg border border-slate-200 bg-white p-4">
+        <h3 className="font-medium text-slate-800">OpenAI configuration</h3>
 
         <label className="flex items-center gap-2">
           <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />
@@ -140,11 +134,11 @@ export default function Settings({ onSaved }) {
         </label>
 
         <div>
-          <span className="field-label">API key</span>
+          <span className="text-sm font-medium text-slate-700">API key</span>
           <div className="mt-1 flex gap-2">
             <input
               type={showKey ? 'text' : 'password'}
-              className="field-control mt-0"
+              className="w-full rounded border border-slate-300 px-3 py-1.5 text-sm focus:border-slate-500 focus:outline-none"
               value={keyInput}
               onChange={(e) => setKeyInput(e.target.value)}
               placeholder={keyPlaceholder}
@@ -166,7 +160,7 @@ export default function Settings({ onSaved }) {
           </Btn>
         </div>
 
-        <div className="grid gap-3 md:grid-cols-2">
+        <div className="grid grid-cols-2 gap-3">
           <ModelSelect
             label="Analysis model"
             hint="Used for drafting and tightening (the heavier task)."
@@ -185,16 +179,15 @@ export default function Settings({ onSaved }) {
       </section>
 
       {/* Organisation context */}
-      <section className="app-card space-y-2 p-5 sm:p-6">
-        <p className="eyebrow">Drafting context</p>
-        <h3 className="mt-1 text-lg font-semibold text-slate-950">Organisation context</h3>
+      <section className="space-y-2 rounded-lg border border-slate-200 bg-white p-4">
+        <h3 className="font-medium text-slate-800">Organisation context</h3>
         <p className="text-xs text-slate-500">
           Included with every AI call so drafts stay consistent without re-explaining who United Ceres
           College is. Keep it factual — never invented figures.
         </p>
         <textarea
           rows={5}
-          className="field-control min-h-36"
+          className="w-full rounded border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none"
           value={orgContext}
           onChange={(e) => setOrgContext(e.target.value)}
           placeholder="e.g. United Ceres College is a private academic institution in Singapore offering diploma and degree programmes…"

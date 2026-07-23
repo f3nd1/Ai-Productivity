@@ -7,7 +7,6 @@ create table if not exists initiatives (
   id uuid primary key default gen_random_uuid(),
   created_at timestamptz not null default now(),
   name text,
-  department text,
   b8_problem text,
   b9_significance text,
   b10_solution text,
@@ -80,10 +79,3 @@ create unique index if not exists section_d_initiative_id_key on section_d (init
 -- saved. No existing data is touched.
 -- ============================================================
 alter table initiatives add column if not exists final_answers jsonb not null default '{}'::jsonb;
-
--- ============================================================
--- MIGRATION — run manually, once, in the Supabase SQL editor.
--- Adds an optional department to each initiative. Existing records remain
--- valid and will show "Department not set" until updated in the app.
--- ============================================================
-alter table initiatives add column if not exists department text;

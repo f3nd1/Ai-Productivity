@@ -68,7 +68,7 @@ function resultLabelLines(result) {
 // d) General Notes: the calculated auto-phrase sentences, then every raw field
 // not already captured elsewhere in the export, as "Label: value" lines
 // (Section D fields incl. D16, then one block per linked Section C result).
-export function buildGeneralNotes(sectionD, linkedResults, initiative = null) {
+export function buildGeneralNotes(sectionD, linkedResults) {
   const sentences = linkedResults
     .map((r) => computeResult(r.type, r.fields || {}).sentence)
     .filter(Boolean)
@@ -76,7 +76,6 @@ export function buildGeneralNotes(sectionD, linkedResults, initiative = null) {
 
   const d = sectionD || {};
   const sectionDLines = [
-    line('Department', initiative?.department),
     line('D16 Future Readiness', d.d16_narrative),
     line('Staff Trained', d.d14_staff_trained),
     line('Total Staff', d.d14_total_staff),

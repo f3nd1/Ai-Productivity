@@ -15,13 +15,13 @@ function Entry({ c }) {
   const [open, setOpen] = useState(false);
   const { date, time } = fmt(c.authorDate);
   return (
-    <div className="app-card p-5">
+    <div className="rounded-lg border border-slate-200 bg-white p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-xs text-slate-500">{date}</p>
           <h3 className="mt-0.5 font-medium text-slate-800">{c.subject}</h3>
         </div>
-        <span className="shrink-0 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">
+        <span className="shrink-0 rounded bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
           {c.author}
         </span>
       </div>
@@ -31,7 +31,7 @@ function Entry({ c }) {
       )}
 
       <p className="mt-2 text-xs text-slate-400">
-        {time} · {c.shortHash}
+        🕑 {time} · {c.shortHash}
       </p>
 
       {c.files.length > 0 && (
@@ -76,11 +76,8 @@ export default function ChangeLog() {
 
   return (
     <div>
-      <div className="mb-4 flex items-end justify-between gap-3">
-        <div>
-          <p className="eyebrow">Repository activity</p>
-          <h2 className="section-title mt-1">Change log</h2>
-        </div>
+      <div className="mb-4 flex items-center justify-between">
+        <h2 className="text-lg font-semibold text-slate-800">Change log</h2>
         <Btn onClick={load}>Refresh</Btn>
       </div>
       <p className="mb-4 text-sm text-slate-500">
@@ -88,7 +85,7 @@ export default function ChangeLog() {
       </p>
 
       {err && (
-        <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 shadow-sm">
+        <div className="rounded border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">
           {err}
         </div>
       )}

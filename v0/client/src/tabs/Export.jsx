@@ -34,12 +34,12 @@ function TextField({ label, value, onChange }) {
   return (
     <div>
       <div className="flex items-center justify-between">
-        <span className="field-label">{label}</span>
+        <span className="text-sm font-medium text-slate-700">{label}</span>
         <CopyBtn getText={() => value} />
       </div>
       <textarea
         rows={4}
-        className="field-control min-h-28"
+        className="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none"
         value={value}
         onChange={(e) => onChange(e.target.value)}
       />
@@ -51,12 +51,12 @@ function NumField({ label, value, onChange, note }) {
   return (
     <div>
       <div className="flex items-center justify-between">
-        <span className="field-label">{label}</span>
+        <span className="text-sm font-medium text-slate-700">{label}</span>
         <CopyBtn getText={() => String(value ?? '')} />
       </div>
       <input
         type="number"
-        className="field-control"
+        className="mt-1 w-full rounded border border-slate-300 px-3 py-1.5 text-sm focus:border-slate-500 focus:outline-none"
         value={value}
         onChange={(e) => onChange(e.target.value)}
       />
@@ -73,7 +73,7 @@ export function ExportCard({ initiative, results, sectionD }) {
   const [finding, setFinding] = useState(() => buildFinding(initiative));
   const [rootCause, setRootCause] = useState(() => buildRootCause(initiative, linked));
   const [actionTaken, setActionTaken] = useState(() => buildActionTaken(sectionD));
-  const [generalNotes, setGeneralNotes] = useState(() => buildGeneralNotes(sectionD, linked, initiative));
+  const [generalNotes, setGeneralNotes] = useState(() => buildGeneralNotes(sectionD, linked));
   const [manDayRate, setManDayRate] = useState(() => financialManDayRateDefault(linked));
   const ba = useMemo(() => productivityBeforeAfter(linked), [linked]);
   const [beforeTime, setBeforeTime] = useState(ba.before);
@@ -91,12 +91,9 @@ export function ExportCard({ initiative, results, sectionD }) {
     );
 
   return (
-    <div className="app-card p-5 sm:p-6">
-      <div className="mb-5 flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-4">
-        <div>
-          <h3 className="font-semibold text-slate-950">{initiative.name || 'Untitled initiative'}</h3>
-          <p className="mt-1 text-xs font-medium text-slate-500">{initiative.department || 'Department not set'}</p>
-        </div>
+    <div className="rounded-lg border border-slate-200 bg-white p-4">
+      <div className="mb-3 flex items-center justify-between">
+        <h3 className="font-medium text-slate-800">{initiative.name || 'Untitled initiative'}</h3>
         <CopyBtn getText={copyAll} label="Copy all as text" />
       </div>
 
@@ -108,8 +105,8 @@ export function ExportCard({ initiative, results, sectionD }) {
       </div>
 
       {showNumbers && (
-        <div className="mt-5 border-t border-slate-200 pt-5">
-          <div className="grid gap-3 sm:grid-cols-2">
+        <div className="mt-4 border-t border-slate-200 pt-4">
+          <div className="grid grid-cols-2 gap-3">
             <NumField label="Man-Day Rate (SGD)" value={manDayRate} onChange={setManDayRate} />
             <NumField label="Before Time (Man-Day)" value={beforeTime} onChange={setBeforeTime} note={timeNote} />
             <NumField label="After Time (Man-Day)" value={afterTime} onChange={setAfterTime} note={timeNote} />

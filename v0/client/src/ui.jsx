@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useTightenButton, useTightenRegister } from './tighten.jsx';
 
 export function Guidance({ children }) {
-  return <p className="mt-1.5 text-xs leading-5 text-slate-500">{children}</p>;
+  return <p className="mt-1 text-xs text-slate-500">{children}</p>;
 }
 
 export function wordCount(t) {
@@ -27,7 +27,7 @@ export function WordCountCopy({ text }) {
   return (
     <div className="mt-1 flex items-center justify-between">
       <span className={`text-xs ${over ? 'font-semibold text-red-600' : 'text-slate-500'}`}>
-        {n} / 300 words{over ? ' · over limit' : ''}
+        {n} / 300 words{over ? ' — over limit' : ''}
       </span>
       <Btn variant="ghost" className="!px-2 !py-1 text-xs" onClick={copy} disabled={!text?.trim()}>
         {copied ? 'Copied' : 'Copy'}
@@ -38,7 +38,7 @@ export function WordCountCopy({ text }) {
 
 export function RequiredBadge() {
   return (
-    <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700">
+    <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-amber-700">
       required
     </span>
   );
@@ -46,16 +46,14 @@ export function RequiredBadge() {
 
 export function Btn({ children, className = '', variant = 'default', ...props }) {
   const styles = {
-    default:
-      'border border-slate-200 bg-white text-slate-700 shadow-sm hover:border-slate-300 hover:bg-slate-50',
-    primary:
-      'border border-indigo-600 bg-indigo-600 text-white shadow-sm shadow-indigo-200 hover:border-indigo-700 hover:bg-indigo-700',
-    danger: 'border border-red-200 bg-white text-red-600 shadow-sm hover:border-red-300 hover:bg-red-50',
-    ghost: 'border border-transparent text-slate-600 hover:bg-slate-100 hover:text-slate-900',
+    default: 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-100',
+    primary: 'bg-slate-800 text-white hover:bg-slate-700',
+    danger: 'border border-red-300 bg-white text-red-600 hover:bg-red-50',
+    ghost: 'text-slate-600 hover:bg-slate-100',
   };
   return (
     <button
-      className={`inline-flex items-center justify-center rounded-xl px-3.5 py-2 text-sm font-semibold transition focus:outline-none focus:ring-4 focus:ring-indigo-100 disabled:cursor-not-allowed disabled:opacity-50 ${styles[variant]} ${className}`}
+      className={`rounded px-3 py-1.5 text-sm font-medium disabled:opacity-50 ${styles[variant]} ${className}`}
       {...props}
     >
       {children}
@@ -66,9 +64,9 @@ export function Btn({ children, className = '', variant = 'default', ...props })
 export function TextInput({ label, className = '', ...props }) {
   return (
     <label className="block">
-      {label && <span className="field-label">{label}</span>}
+      {label && <span className="text-sm font-medium text-slate-700">{label}</span>}
       <input
-        className={`field-control ${className}`}
+        className={`mt-1 w-full rounded border border-slate-300 px-3 py-1.5 text-sm focus:border-slate-500 focus:outline-none ${className}`}
         {...props}
       />
     </label>
@@ -85,7 +83,7 @@ export function NarrativeField({ q, value, onChange, tighten = true, tightenId =
   return (
     <div>
       <div className="flex items-center justify-between">
-        <label className="field-label">
+        <label className="text-sm font-medium text-slate-700">
           {q.label}
           {q.required && <RequiredBadge />}
         </label>
@@ -95,9 +93,9 @@ export function NarrativeField({ q, value, onChange, tighten = true, tightenId =
           </Btn>
         )}
       </div>
-      <p className="mt-1 text-xs italic leading-5 text-slate-500">{q.prompt}</p>
+      <p className="mt-0.5 text-xs italic text-slate-500">{q.prompt}</p>
       <textarea
-        className="field-control min-h-28"
+        className="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none"
         rows={4}
         value={value || ''}
         onChange={(e) => onChange(e.target.value)}
@@ -111,10 +109,10 @@ export function NarrativeField({ q, value, onChange, tighten = true, tightenId =
 
 export function Modal({ title, children, onClose }) {
   return (
-    <div className="fixed inset-0 z-20 flex items-start justify-center overflow-y-auto bg-slate-950/45 p-4 backdrop-blur-sm">
-      <div className="app-panel mt-8 w-full max-w-2xl p-6">
+    <div className="fixed inset-0 z-20 flex items-start justify-center overflow-y-auto bg-black/30 p-4">
+      <div className="mt-8 w-full max-w-2xl rounded-lg border border-slate-200 bg-white p-6">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="section-title">{title}</h2>
+          <h2 className="text-lg font-semibold text-slate-800">{title}</h2>
           <Btn variant="ghost" onClick={onClose}>
             Close
           </Btn>

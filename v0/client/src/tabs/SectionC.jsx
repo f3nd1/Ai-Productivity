@@ -18,10 +18,10 @@ const TYPE_LABEL = {
 function Num({ label, value, onChange, ...rest }) {
   return (
     <label className="block">
-      <span className="field-label">{label}</span>
+      <span className="text-sm font-medium text-slate-700">{label}</span>
       <input
         type="number"
-        className="field-control"
+        className="mt-1 w-full rounded border border-slate-300 px-3 py-1.5 text-sm focus:border-slate-500 focus:outline-none"
         value={value ?? ''}
         onChange={(e) => onChange(e.target.value)}
         {...rest}
@@ -36,14 +36,14 @@ function Note({ value, onChange, tightenId }) {
   return (
     <label className="block">
       <div className="flex items-center justify-between">
-        <span className="field-label">Qualitative note</span>
+        <span className="text-sm font-medium text-slate-700">Qualitative note</span>
         <Btn variant="ghost" onClick={tighten} disabled={busy || !value?.trim()}>
           {busy ? 'Tightening…' : 'Tighten with AI'}
         </Btn>
       </div>
       <textarea
         rows={2}
-        className="field-control"
+        className="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none"
         value={value || ''}
         onChange={(e) => onChange(e.target.value)}
       />
@@ -55,15 +55,15 @@ function Note({ value, onChange, tightenId }) {
 function TypeFields({ type, f, set, tightenId }) {
   if (type === 'productivity') {
     return (
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid grid-cols-2 gap-3">
         <TextInput label="Metric name" value={f.metric || ''} onChange={(e) => set('metric', e.target.value)} />
         <TextInput label="Unit" value={f.unit || ''} onChange={(e) => set('unit', e.target.value)} />
         <Num label="Before value" value={f.before} onChange={(v) => set('before', v)} />
         <Num label="After value" value={f.after} onChange={(v) => set('after', v)} />
         <label className="block">
-          <span className="field-label">Direction</span>
+          <span className="text-sm font-medium text-slate-700">Direction</span>
           <select
-            className="field-control"
+            className="mt-1 w-full rounded border border-slate-300 px-3 py-1.5 text-sm"
             value={f.direction || 'higher'}
             onChange={(e) => set('direction', e.target.value)}
           >
@@ -81,12 +81,12 @@ function TypeFields({ type, f, set, tightenId }) {
   if (type === 'financial') {
     const timeBased = f.timeBased !== false;
     return (
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid grid-cols-2 gap-3">
         <TextInput label="Cost category" value={f.costCategory || ''} onChange={(e) => set('costCategory', e.target.value)} />
         <label className="block">
-          <span className="field-label">Saving type</span>
+          <span className="text-sm font-medium text-slate-700">Saving type</span>
           <select
-            className="field-control"
+            className="mt-1 w-full rounded border border-slate-300 px-3 py-1.5 text-sm"
             value={timeBased ? 'time' : 'direct'}
             onChange={(e) => set('timeBased', e.target.value === 'time')}
           >
@@ -113,12 +113,12 @@ function TypeFields({ type, f, set, tightenId }) {
   // operational
   const unit = f.unit || '%';
   return (
-    <div className="grid gap-3 sm:grid-cols-2">
+    <div className="grid grid-cols-2 gap-3">
       <TextInput label="Metric name" value={f.metric || ''} onChange={(e) => set('metric', e.target.value)} />
       <label className="block">
-        <span className="field-label">Unit</span>
+        <span className="text-sm font-medium text-slate-700">Unit</span>
         <select
-          className="field-control"
+          className="mt-1 w-full rounded border border-slate-300 px-3 py-1.5 text-sm"
           value={unit}
           onChange={(e) => set('unit', e.target.value)}
         >
@@ -144,14 +144,14 @@ function CalcOutput({ type, fields }) {
   const out = computeResult(type, fields);
   if (out.metrics.length === 0 && !out.sentence && !out.warning) return null;
   return (
-    <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
+    <div className="mt-3 rounded border border-slate-200 bg-slate-50 p-3">
       {out.warning && (
         <p className="mb-2 rounded bg-amber-100 px-2 py-1 text-xs text-amber-800">⚠ {out.warning}</p>
       )}
       {out.metrics.length > 0 && (
         <div className="flex flex-wrap gap-3">
           {out.metrics.map((m, idx) => (
-          <div key={idx} className="rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 shadow-sm">
+            <div key={idx} className="rounded border border-slate-200 bg-white px-3 py-2">
               <div className="text-[10px] uppercase tracking-wide text-slate-500">{m.label}</div>
               <div className="text-lg font-semibold text-slate-800">{m.value}</div>
             </div>
@@ -172,9 +172,9 @@ function ResultCard({ result, onChange, onDelete, tightenId }) {
   const set = (k, v) => onChange({ ...result, fields: { ...fields, [k]: v } });
 
   return (
-    <div className="app-card p-5 sm:p-6">
+    <div className="rounded-lg border border-slate-200 bg-white p-4">
       <div className="mb-3 flex flex-wrap items-center gap-2">
-        <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${TYPE_TAG[type]}`}>{TYPE_LABEL[type]}</span>
+        <span className={`rounded px-2 py-0.5 text-xs font-medium ${TYPE_TAG[type]}`}>{TYPE_LABEL[type]}</span>
         <div className="ml-auto">
           <Btn variant="danger" onClick={onDelete}>
             Delete
@@ -183,9 +183,9 @@ function ResultCard({ result, onChange, onDelete, tightenId }) {
       </div>
 
       <label className="block max-w-xs">
-        <span className="field-label">Type</span>
+        <span className="text-sm font-medium text-slate-700">Type</span>
         <select
-          className="field-control"
+          className="mt-1 w-full rounded border border-slate-300 px-3 py-1.5 text-sm"
           value={type}
           onChange={(e) => setType(e.target.value)}
         >
@@ -209,7 +209,7 @@ function ResultCard({ result, onChange, onDelete, tightenId }) {
 // step (evidence-gated) — unlike the B/D fields whose raw text is the answer.
 function CAnswerBox({ qid, value, onChange, onGenerate, busy, err, hasEvidence }) {
   return (
-    <div className="mt-4 rounded-2xl border border-indigo-100 bg-indigo-50/50 p-5">
+    <div className="mt-3 rounded-lg border border-slate-300 bg-slate-50 p-4">
       <div className="mb-2 flex items-center justify-between">
         <h4 className="font-medium text-slate-800">{Q[qid].label}</h4>
         <div className="flex items-center gap-2">
@@ -221,7 +221,7 @@ function CAnswerBox({ qid, value, onChange, onGenerate, busy, err, hasEvidence }
       </div>
       <textarea
         rows={5}
-        className="field-control mt-0 min-h-36"
+        className="w-full rounded border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none"
         value={value || ''}
         onChange={(e) => onChange(e.target.value)}
         placeholder="Not generated yet."
@@ -255,11 +255,8 @@ export default function SectionC({
 }) {
   return (
     <div>
-      <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <p className="eyebrow">Measured outcomes</p>
-          <h2 className="section-title mt-1">Section C, measurable results</h2>
-        </div>
+      <div className="mb-4 flex items-center justify-between">
+        <h2 className="text-lg font-semibold text-slate-800">Section C — measurable results</h2>
         <Btn variant="primary" onClick={onAdd}>
           Add result
         </Btn>

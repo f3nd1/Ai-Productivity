@@ -4,15 +4,15 @@ import { Btn, NarrativeField } from '../ui.jsx';
 const num = (v) => (v === '' || v == null ? NaN : Number(v));
 
 function CalcInputs({ children }) {
-  return <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{children}</div>;
+  return <div className="mt-3 grid grid-cols-3 gap-3">{children}</div>;
 }
 function NumIn({ label, value, onChange }) {
   return (
     <label className="block">
-      <span className="field-label">{label}</span>
+      <span className="text-sm font-medium text-slate-700">{label}</span>
       <input
         type="number"
-        className="field-control"
+        className="mt-1 w-full rounded border border-slate-300 px-3 py-1.5 text-sm focus:border-slate-500 focus:outline-none"
         value={value ?? ''}
         onChange={(e) => onChange(e.target.value)}
       />
@@ -23,7 +23,7 @@ function NumIn({ label, value, onChange }) {
 function Suggested({ sentence, onInsert }) {
   if (!sentence) return null;
   return (
-    <div className="mt-4 flex flex-wrap items-center gap-3 rounded-2xl border border-indigo-100 bg-indigo-50/60 p-4">
+    <div className="mt-3 flex items-center gap-3 rounded border border-slate-200 bg-slate-50 p-3">
       <p className="flex-1 text-sm text-slate-700">Suggested: {sentence}</p>
       <Btn onClick={onInsert}>Insert</Btn>
     </div>
@@ -66,13 +66,10 @@ export default function SectionD({ d, setD }) {
 
   return (
     <div className="space-y-6">
-      <div>
-        <p className="eyebrow">People and readiness</p>
-        <h2 className="section-title mt-1">Section D, adoption and future readiness</h2>
-      </div>
+      <h2 className="text-lg font-semibold text-slate-800">Section D</h2>
 
       {/* D14 */}
-      <section className="app-card p-5 sm:p-6">
+      <section className="rounded-lg border border-slate-200 bg-white p-4">
         <NarrativeField q={Q.d14} value={d.d14_narrative} onChange={set('d14_narrative')} tightenId={200} tightenOrder={200} />
         <CalcInputs>
           <NumIn label="Staff trained" value={d.d14_staff_trained} onChange={set('d14_staff_trained')} />
@@ -86,7 +83,7 @@ export default function SectionD({ d, setD }) {
       </section>
 
       {/* D15 */}
-      <section className="app-card p-5 sm:p-6">
+      <section className="rounded-lg border border-slate-200 bg-white p-4">
         <NarrativeField q={Q.d15} value={d.d15_narrative} onChange={set('d15_narrative')} tightenId={201} tightenOrder={201} />
         <CalcInputs>
           <NumIn label="Hours freed per week" value={d.d15_hours_per_week} onChange={set('d15_hours_per_week')} />
@@ -102,7 +99,7 @@ export default function SectionD({ d, setD }) {
       </section>
 
       {/* D16 — narrative only */}
-      <section className="app-card p-5 sm:p-6">
+      <section className="rounded-lg border border-slate-200 bg-white p-4">
         <NarrativeField q={Q.d16} value={d.d16_narrative} onChange={set('d16_narrative')} tightenId={202} tightenOrder={202} />
       </section>
     </div>

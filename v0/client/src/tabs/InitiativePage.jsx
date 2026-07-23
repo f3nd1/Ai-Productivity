@@ -9,18 +9,6 @@ import SectionC from './SectionC.jsx';
 import SectionD from './SectionD.jsx';
 import { ExportCard } from './Export.jsx';
 
-const DEPARTMENTS = [
-  'Academic',
-  'Admission',
-  'Finance',
-  'Human Resources',
-  'Information Technology',
-  'Marketing',
-  'Quality Assurance',
-  'Sales',
-  'Student Support',
-];
-
 const numOrNull = (v) => {
   if (v === '' || v === null || v === undefined) return null;
   const n = Number(v);
@@ -44,31 +32,14 @@ function sectionDBody(d) {
 function InitiativeInfo({ info, setInfo }) {
   const set = (k) => (v) => setInfo((s) => ({ ...s, [k]: v }));
   return (
-    <section className="app-card space-y-5 p-5 sm:p-6">
-      <div>
-        <p className="eyebrow">Foundation</p>
-        <h2 className="section-title mt-1">Initiative details</h2>
-      </div>
-      <div className="grid gap-4 md:grid-cols-2">
-        <TextInput
-          label="Initiative name"
-          value={info.name || ''}
-          onChange={(e) => set('name')(e.target.value)}
-          placeholder="e.g. Claude for Quality Action drafting"
-        />
-        <TextInput
-          label="Department"
-          value={info.department || ''}
-          onChange={(e) => set('department')(e.target.value)}
-          placeholder="Select or enter a department"
-          list="department-options"
-        />
-        <datalist id="department-options">
-          {DEPARTMENTS.map((department) => (
-            <option key={department} value={department} />
-          ))}
-        </datalist>
-      </div>
+    <section className="space-y-4 rounded-lg border border-slate-200 bg-white p-4">
+      <h2 className="text-lg font-semibold text-slate-800">Initiative details</h2>
+      <TextInput
+        label="Initiative name"
+        value={info.name || ''}
+        onChange={(e) => set('name')(e.target.value)}
+        placeholder="e.g. Claude for Quality Action drafting"
+      />
       <NarrativeField q={Q.b8} value={info.b8_problem} onChange={set('b8_problem')} tightenId={1} tightenOrder={1} />
       <NarrativeField q={Q.b9} value={info.b9_significance} onChange={set('b9_significance')} tightenId={2} tightenOrder={2} />
       <NarrativeField q={Q.b10} value={info.b10_solution} onChange={set('b10_solution')} tightenId={3} tightenOrder={3} />
@@ -85,7 +56,6 @@ export default function InitiativePage({ initiative, results, sectionDList, relo
 
   const [info, setInfo] = useState({
     name: initiative.name || '',
-    department: initiative.department || '',
     b8_problem: initiative.b8_problem || '',
     b9_significance: initiative.b9_significance || '',
     b10_solution: initiative.b10_solution || '',
@@ -282,7 +252,7 @@ export default function InitiativePage({ initiative, results, sectionDList, relo
     <TightenProvider registryRef={registryRef}>
       {/* onBlur bubbles (focusout) — any field losing focus schedules an autosave. */}
       <div className="space-y-6" onBlur={scheduleAutosave}>
-        <div className="app-card sticky top-3 z-10 flex flex-wrap items-center justify-between gap-3 p-3.5 backdrop-blur-xl">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <Btn variant="ghost" onClick={onBack}>
             ← Back to Initiatives
           </Btn>
@@ -305,19 +275,9 @@ export default function InitiativePage({ initiative, results, sectionDList, relo
             </Btn>
           </div>
         </div>
-        {err && <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-600">{err}</p>}
+        {err && <p className="text-sm text-red-600">{err}</p>}
 
-        <div className="flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <p className="eyebrow">{info.department?.trim() || 'Department not set'}</p>
-            <h1 className="mt-1 text-2xl font-semibold tracking-tight text-slate-950 sm:text-3xl">
-              {info.name || 'Untitled initiative'}
-            </h1>
-          </div>
-          <span className="rounded-full bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-700 ring-1 ring-indigo-100">
-            9 evidence questions
-          </span>
-        </div>
+        <h1 className="text-xl font-semibold text-slate-800">{info.name || 'Untitled initiative'}</h1>
 
         <InitiativeInfo info={info} setInfo={setInfo} />
 
@@ -337,8 +297,9 @@ export default function InitiativePage({ initiative, results, sectionDList, relo
         <SectionD d={dFields} setD={setDFields} />
 
         <section>
-          <p className="eyebrow">Transfer</p>
-          <h2 className="section-title mb-3 mt-1">Export to ERPNext Quality Action Resolution</h2>
+          <h2 className="mb-2 text-lg font-semibold text-slate-800">
+            Export — ERPNext Quality Action Resolution
+          </h2>
           <ExportCard initiative={liveInitiative} results={linkedResults} sectionD={dFields} />
         </section>
       </div>
