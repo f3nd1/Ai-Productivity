@@ -34,3 +34,11 @@ The field provides common UCC department suggestions but remains editable, so a 
 - JavaScript and JSX syntax check, passed
 
 A full Vite production build was not completed because dependency installation timed out in the verification environment.
+
+
+## July 2026 follow-up update
+
+- Replaced the browser-dependent Department datalist with a proper select control.
+- Added an Other department option that reveals a manual text field.
+- Added an Overview department filter. Summary cards, the financial chart and the detailed table now follow the selected department.
+- Added CSV export for the currently displayed detailed-view rows.

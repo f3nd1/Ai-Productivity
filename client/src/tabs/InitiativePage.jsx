@@ -40,6 +40,58 @@ function sectionDBody(d) {
   };
 }
 
+function DepartmentField({ value, onChange }) {
+  const isListed = DEPARTMENTS.includes(value);
+  const [customMode, setCustomMode] = useState(Boolean(value && !isListed));
+
+  useEffect(() => {
+    if (value && !DEPARTMENTS.includes(value)) setCustomMode(true);
+    if (DEPARTMENTS.includes(value)) setCustomMode(false);
+  }, [value]);
+
+  function changeSelection(event) {
+    const next = event.target.value;
+    if (next === '__custom__') {
+      setCustomMode(true);
+      if (DEPARTMENTS.includes(value)) onChange('');
+      return;
+    }
+    setCustomMode(false);
+    onChange(next);
+  }
+
+  return (
+    <div>
+      <label className="block">
+        <span className="field-label">Department</span>
+        <select
+          className="field-control"
+          value={customMode ? '__custom__' : value || ''}
+          onChange={changeSelection}
+        >
+          <option value="">Select a department</option>
+          {DEPARTMENTS.map((department) => (
+            <option key={department} value={department}>
+              {department}
+            </option>
+          ))}
+          <option value="__custom__">Other department</option>
+        </select>
+      </label>
+
+      {customMode && (
+        <TextInput
+          label="Custom department"
+          className="mt-2"
+          value={value || ''}
+          onChange={(event) => onChange(event.target.value)}
+          placeholder="Enter the department name"
+        />
+      )}
+    </div>
+  );
+}
+
 // Initiative name + B8/B9/B10, controlled by the page.
 function InitiativeInfo({ info, setInfo }) {
   const set = (k) => (v) => setInfo((s) => ({ ...s, [k]: v }));
@@ -56,18 +108,10 @@ function InitiativeInfo({ info, setInfo }) {
           onChange={(e) => set('name')(e.target.value)}
           placeholder="e.g. Claude for Quality Action drafting"
         />
-        <TextInput
-          label="Department"
+        <DepartmentField
           value={info.department || ''}
-          onChange={(e) => set('department')(e.target.value)}
-          placeholder="Select or enter a department"
-          list="department-options"
+          onChange={set('department')}
         />
-        <datalist id="department-options">
-          {DEPARTMENTS.map((department) => (
-            <option key={department} value={department} />
-          ))}
-        </datalist>
       </div>
       <NarrativeField q={Q.b8} value={info.b8_problem} onChange={set('b8_problem')} tightenId={1} tightenOrder={1} />
       <NarrativeField q={Q.b9} value={info.b9_significance} onChange={set('b9_significance')} tightenId={2} tightenOrder={2} />

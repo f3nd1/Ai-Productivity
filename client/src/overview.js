@@ -108,3 +108,45 @@ export function computeOverview({ initiatives = [], results = [], sectionDList =
 
   return { summary, rows };
 }
+
+
+function csvCell(value) {
+  const text = value == null ? '' : String(value);
+  return `"${text.replaceAll('"', '""')}"`;
+}
+
+export function overviewRowsToCsv(rows = []) {
+  const headers = [
+    'Initiative',
+    'Department',
+    'Productivity Results',
+    'Financial Results',
+    'Operational Results',
+    'Saved Monthly (SGD)',
+    'Average Productivity Gain (%)',
+    'D14 Adoption (%)',
+    'D15 Hours Freed Per Week',
+    'Completeness (out of 9)',
+  ];
+
+  const lines = [headers.map(csvCell).join(',')];
+  for (const row of rows) {
+    lines.push(
+      [
+        row.name,
+        row.department || 'Not set',
+        row.counts?.productivity ?? 0,
+        row.counts?.financial ?? 0,
+        row.counts?.operational ?? 0,
+        row.monthly,
+        row.avgProductivityPct,
+        row.d14Adoption,
+        row.d15Hours,
+        row.completeness,
+      ]
+        .map(csvCell)
+        .join(',')
+    );
+  }
+  return lines.join('\r\n');
+}

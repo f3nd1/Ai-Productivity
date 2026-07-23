@@ -1,5 +1,6 @@
-import { useMemo } from 'react';
-import { computeOverview } from '../overview.js';
+import { useMemo, useState } from 'react';
+import { computeOverview, overviewRowsToCsv } from '../overview.js';
+import { Btn } from '../ui.jsx';
 
 const fmtMoney = (n) => '$' + Math.round(n).toLocaleString('en-GB');
 const dash = (v, fmt = (x) => x) => (v === null || v === undefined ? 'Not recorded' : fmt(v));
@@ -32,7 +33,7 @@ function MonthlyChart({ rows }) {
   if (withMoney.length === 0) {
     return (
       <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/70 px-4 py-8 text-center text-sm text-slate-500">
-        No financial savings have been recorded yet.
+        No financial savings have been recorded for this department.
       </div>
     );
   }
@@ -60,15 +61,49 @@ function MonthlyChart({ rows }) {
   );
 }
 
+function csvFileName(department) {
+  const suffix = department === 'all'
+    ? 'all-departments'
+    : department.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  return `ai-impact-overview-${suffix || 'department'}.csv`;
+}
+
+function downloadCsv(rows, department) {
+  const blob = new Blob(['\uFEFF', overviewRowsToCsv(rows)], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = csvFileName(department);
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
 export default function Overview({ initiatives, results, sectionDList, onOpenInitiative }) {
-  const { summary, rows } = useMemo(
-    () => computeOverview({ initiatives, results, sectionDList }),
-    [initiatives, results, sectionDList]
+  const [selectedDepartment, setSelectedDepartment] = useState('all');
+
+  const departmentOptions = useMemo(
+    () => Array.from(new Set(initiatives.map((initiative) => initiative.department?.trim()).filter(Boolean))).sort(),
+    [initiatives]
   );
 
-  const departments = useMemo(
-    () => new Set(initiatives.map((initiative) => initiative.department?.trim()).filter(Boolean)).size,
-    [initiatives]
+  const filteredData = useMemo(() => {
+    if (selectedDepartment === 'all') return { initiatives, results, sectionDList };
+    const filteredInitiatives = initiatives.filter(
+      (initiative) => initiative.department?.trim() === selectedDepartment
+    );
+    const ids = new Set(filteredInitiatives.map((initiative) => initiative.id));
+    return {
+      initiatives: filteredInitiatives,
+      results: results.filter((result) => ids.has(result.initiative_id)),
+      sectionDList: sectionDList.filter((sectionD) => ids.has(sectionD.initiative_id)),
+    };
+  }, [initiatives, results, sectionDList, selectedDepartment]);
+
+  const { summary, rows } = useMemo(
+    () => computeOverview(filteredData),
+    [filteredData]
   );
 
   if (initiatives.length === 0) {
@@ -85,17 +120,38 @@ export default function Overview({ initiatives, results, sectionDList, onOpenIni
 
   const bt = summary.byType;
   const counts = (c) => `${c.productivity}P · ${c.financial}F · ${c.operational}O`;
+  const departmentLabel = selectedDepartment === 'all' ? 'All departments' : selectedDepartment;
 
   return (
     <div className="space-y-6">
-      <div>
-        <p className="eyebrow">Organisation summary</p>
-        <h2 className="section-title mt-1">Evidence at a glance</h2>
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <p className="eyebrow">Organisation summary</p>
+          <h2 className="section-title mt-1">Evidence at a glance</h2>
+        </div>
+        <label className="block w-full sm:w-64">
+          <span className="field-label">Department view</span>
+          <select
+            className="field-control mt-1.5"
+            value={selectedDepartment}
+            onChange={(event) => setSelectedDepartment(event.target.value)}
+          >
+            <option value="all">All departments</option>
+            {departmentOptions.map((department) => (
+              <option key={department} value={department}>{department}</option>
+            ))}
+          </select>
+        </label>
       </div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6">
         <Stat label="Initiatives" value={summary.totalInitiatives} accent="indigo" />
-        <Stat label="Departments" value={departments || 'Not set'} accent="sky" />
+        <Stat
+          label="Department"
+          value={selectedDepartment === 'all' ? departmentOptions.length || 'Not set' : selectedDepartment}
+          sub={selectedDepartment === 'all' ? 'Departments represented' : 'Current filtered view'}
+          accent="sky"
+        />
         <Stat
           label="Section C results"
           value={summary.totalResults}
@@ -112,6 +168,7 @@ export default function Overview({ initiatives, results, sectionDList, onOpenIni
           <div>
             <p className="eyebrow">Financial impact</p>
             <h3 className="mt-1 text-lg font-semibold tracking-tight text-slate-950">Monthly saving by initiative</h3>
+            <p className="mt-1 text-xs text-slate-500">Showing {departmentLabel}</p>
           </div>
           <span className="rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-100">
             Total {fmtMoney(summary.totalMonthly)}
@@ -121,61 +178,76 @@ export default function Overview({ initiatives, results, sectionDList, onOpenIni
       </section>
 
       <section className="app-card overflow-hidden">
-        <div className="border-b border-slate-100 px-5 py-4 sm:px-6">
-          <p className="eyebrow">Detailed view</p>
-          <h3 className="mt-1 text-lg font-semibold tracking-tight text-slate-950">Initiative performance</h3>
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-4 sm:px-6">
+          <div>
+            <p className="eyebrow">Detailed view</p>
+            <h3 className="mt-1 text-lg font-semibold tracking-tight text-slate-950">Initiative performance</h3>
+            <p className="mt-1 text-xs text-slate-500">
+              {rows.length} initiative{rows.length === 1 ? '' : 's'}, {departmentLabel}
+            </p>
+          </div>
+          <Btn onClick={() => downloadCsv(rows, selectedDepartment)} disabled={rows.length === 0}>
+            Export CSV
+          </Btn>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[980px] text-sm">
-            <thead>
-              <tr className="bg-slate-50/80 text-left text-[11px] uppercase tracking-[0.12em] text-slate-500">
-                <th className="px-5 py-3.5 font-semibold">Initiative</th>
-                <th className="px-5 py-3.5 font-semibold">Department</th>
-                <th className="px-5 py-3.5 font-semibold">C results</th>
-                <th className="px-5 py-3.5 font-semibold">Saved monthly</th>
-                <th className="px-5 py-3.5 font-semibold">Productivity</th>
-                <th className="px-5 py-3.5 font-semibold">D14 adoption</th>
-                <th className="px-5 py-3.5 font-semibold">D15 hours</th>
-                <th className="px-5 py-3.5 font-semibold">Complete</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r) => (
-                <tr key={r.id} className="border-t border-slate-100 transition hover:bg-indigo-50/30">
-                  <td className="px-5 py-4">
-                    <button
-                      onClick={() => onOpenInitiative(r.id)}
-                      className="font-semibold text-slate-900 transition hover:text-indigo-700"
-                    >
-                      {r.name}
-                    </button>
-                  </td>
-                  <td className="px-5 py-4">
-                    <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">
-                      {r.department || 'Not set'}
-                    </span>
-                  </td>
-                  <td className="px-5 py-4 text-slate-600">{counts(r.counts)}</td>
-                  <td className="px-5 py-4 font-medium text-slate-700">{dash(r.monthly, fmtMoney)}</td>
-                  <td className="px-5 py-4 text-slate-600">{dash(r.avgProductivityPct, (v) => `${v}%`)}</td>
-                  <td className="px-5 py-4 text-slate-600">{dash(r.d14Adoption, (v) => `${v}%`)}</td>
-                  <td className="px-5 py-4 text-slate-600">{dash(r.d15Hours)}</td>
-                  <td className="px-5 py-4">
-                    <div className="flex items-center gap-2">
-                      <div className="h-1.5 w-16 overflow-hidden rounded-full bg-slate-100">
-                        <div
-                          className="h-full rounded-full bg-indigo-500"
-                          style={{ width: `${Math.round((r.completeness / 9) * 100)}%` }}
-                        />
-                      </div>
-                      <span className="text-xs font-semibold text-slate-600">{r.completeness}/9</span>
-                    </div>
-                  </td>
+
+        {rows.length === 0 ? (
+          <div className="px-6 py-10 text-center text-sm text-slate-500">
+            No initiatives are assigned to this department.
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[980px] text-sm">
+              <thead>
+                <tr className="bg-slate-50/80 text-left text-[11px] uppercase tracking-[0.12em] text-slate-500">
+                  <th className="px-5 py-3.5 font-semibold">Initiative</th>
+                  <th className="px-5 py-3.5 font-semibold">Department</th>
+                  <th className="px-5 py-3.5 font-semibold">C results</th>
+                  <th className="px-5 py-3.5 font-semibold">Saved monthly</th>
+                  <th className="px-5 py-3.5 font-semibold">Productivity</th>
+                  <th className="px-5 py-3.5 font-semibold">D14 adoption</th>
+                  <th className="px-5 py-3.5 font-semibold">D15 hours</th>
+                  <th className="px-5 py-3.5 font-semibold">Complete</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {rows.map((r) => (
+                  <tr key={r.id} className="border-t border-slate-100 transition hover:bg-indigo-50/30">
+                    <td className="px-5 py-4">
+                      <button
+                        onClick={() => onOpenInitiative(r.id)}
+                        className="font-semibold text-slate-900 transition hover:text-indigo-700"
+                      >
+                        {r.name}
+                      </button>
+                    </td>
+                    <td className="px-5 py-4">
+                      <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">
+                        {r.department || 'Not set'}
+                      </span>
+                    </td>
+                    <td className="px-5 py-4 text-slate-600">{counts(r.counts)}</td>
+                    <td className="px-5 py-4 font-medium text-slate-700">{dash(r.monthly, fmtMoney)}</td>
+                    <td className="px-5 py-4 text-slate-600">{dash(r.avgProductivityPct, (v) => `${v}%`)}</td>
+                    <td className="px-5 py-4 text-slate-600">{dash(r.d14Adoption, (v) => `${v}%`)}</td>
+                    <td className="px-5 py-4 text-slate-600">{dash(r.d15Hours)}</td>
+                    <td className="px-5 py-4">
+                      <div className="flex items-center gap-2">
+                        <div className="h-1.5 w-16 overflow-hidden rounded-full bg-slate-100">
+                          <div
+                            className="h-full rounded-full bg-indigo-500"
+                            style={{ width: `${Math.round((r.completeness / 9) * 100)}%` }}
+                          />
+                        </div>
+                        <span className="text-xs font-semibold text-slate-600">{r.completeness}/9</span>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </section>
     </div>
   );

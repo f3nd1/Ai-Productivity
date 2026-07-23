@@ -1,6 +1,6 @@
 // node src/overview.test.mjs
 import assert from 'node:assert';
-import { computeOverview } from './overview.js';
+import { computeOverview, overviewRowsToCsv } from './overview.js';
 
 const initiatives = [
   { id: 'A', name: 'Alpha', department: 'Quality Assurance', b8_problem: 'x', b9_significance: 'y', b10_solution: '', final_answers: { c11: 'gen' } },
@@ -50,5 +50,24 @@ assert.equal(b.avgProductivityPct, 50);
 assert.equal(b.d14Adoption, null); // no staff numbers
 assert.equal(b.d15Hours, 6); // 2*3
 assert.equal(b.completeness, 1); // b8 only
+
+
+// --- CSV export ---
+const csv = overviewRowsToCsv([
+  {
+    name: 'Alpha, "Pilot"',
+    department: 'Quality Assurance',
+    counts: { productivity: 1, financial: 2, operational: 3 },
+    monthly: 1299,
+    avgProductivityPct: 30,
+    d14Adoption: 80,
+    d15Hours: 20,
+    completeness: 6,
+  },
+]);
+assert.ok(csv.includes('"Initiative","Department"'));
+assert.ok(csv.includes('"Alpha, ""Pilot"""'));
+assert.ok(csv.includes('"Quality Assurance"'));
+assert.ok(csv.includes('"1299"'));
 
 console.log('overview.test.mjs: all assertions passed');
