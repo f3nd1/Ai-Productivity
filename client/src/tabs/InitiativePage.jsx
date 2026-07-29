@@ -167,10 +167,11 @@ export default function InitiativePage({ initiative, results, sectionDList, relo
 
   // ---- Section C editing (flows into the page-level save) ----
   const changeResult = (idx, next) => setCResults((list) => list.map((r, i) => (i === idx ? next : r)));
-  const addResult = () =>
+  // Type comes from the Section C sub-section the add button belongs to.
+  const addResult = (type) =>
     setCResults((list) => [
       ...list,
-      { _key: `new-${(keyCounter.current += 1)}`, initiative_id: initiative.id, type: 'productivity', fields: {} },
+      { _key: `new-${(keyCounter.current += 1)}`, initiative_id: initiative.id, type, fields: {} },
     ]);
   const deleteResult = async (idx) => {
     const r = stateRef.current.cResults[idx];

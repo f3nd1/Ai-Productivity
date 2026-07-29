@@ -4,16 +4,34 @@ import { EVIDENCE_HINT } from '../evidence.js';
 import { useTightenButton, useTightenRegister } from '../tighten.jsx';
 import { Btn, TextInput, WordCountCopy } from '../ui.jsx';
 
-const TYPE_TAG = {
-  productivity: 'bg-blue-100 text-blue-700',
-  financial: 'bg-green-100 text-green-700',
-  operational: 'bg-purple-100 text-purple-700',
-};
-const TYPE_LABEL = {
-  productivity: 'Productivity (C11)',
-  financial: 'Financial (C12)',
-  operational: 'Operational (C13)',
-};
+// Fixed, always-visible sub-sections. A result's type comes from the group it
+// was added under, so cards no longer carry a type picker.
+const GROUPS = [
+  {
+    type: 'productivity',
+    qid: 'c11',
+    title: 'C11, productivity gains',
+    blurb: 'Speed, accuracy or throughput improvements, measured before and after.',
+    addLabel: 'Add Productivity result',
+    tone: 'bg-blue-50 text-blue-700 ring-blue-100',
+  },
+  {
+    type: 'financial',
+    qid: 'c12',
+    title: 'C12, financial impact',
+    blurb: 'Cost savings and ROI, either time-based or a direct monthly figure.',
+    addLabel: 'Add Financial result',
+    tone: 'bg-emerald-50 text-emerald-700 ring-emerald-100',
+  },
+  {
+    type: 'operational',
+    qid: 'c13',
+    title: 'C13, operational benefits',
+    blurb: 'Service, process or quality rates that moved after the AI rollout.',
+    addLabel: 'Add Operational result',
+    tone: 'bg-violet-50 text-violet-700 ring-violet-100',
+  },
+];
 
 function Num({ label, value, onChange, ...rest }) {
   return (
@@ -165,16 +183,18 @@ function CalcOutput({ type, fields }) {
 
 // Fully controlled: edits flow up via onChange so the page-level Save persists
 // them. Delete stays a distinct per-card action (handled by the parent).
-function ResultCard({ result, onChange, onDelete, tightenId }) {
+// Type is fixed by the sub-section the card lives in — no picker.
+function ResultCard({ result, index, onChange, onDelete, tightenId }) {
   const type = result.type || 'productivity';
   const fields = result.fields || {};
-  const setType = (t) => onChange({ ...result, type: t });
   const set = (k, v) => onChange({ ...result, fields: { ...fields, [k]: v } });
 
   return (
     <div className="app-card p-5 sm:p-6">
       <div className="mb-3 flex flex-wrap items-center gap-2">
-        <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${TYPE_TAG[type]}`}>{TYPE_LABEL[type]}</span>
+        <span className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">
+          Result {index}
+        </span>
         <div className="ml-auto">
           <Btn variant="danger" onClick={onDelete}>
             Delete
@@ -182,22 +202,7 @@ function ResultCard({ result, onChange, onDelete, tightenId }) {
         </div>
       </div>
 
-      <label className="block max-w-xs">
-        <span className="field-label">Type</span>
-        <select
-          className="field-control"
-          value={type}
-          onChange={(e) => setType(e.target.value)}
-        >
-          <option value="productivity">Productivity</option>
-          <option value="financial">Financial</option>
-          <option value="operational">Operational</option>
-        </select>
-      </label>
-
-      <div className="mt-3">
-        <TypeFields type={type} f={fields} set={set} tightenId={tightenId} />
-      </div>
+      <TypeFields type={type} f={fields} set={set} tightenId={tightenId} />
 
       <CalcOutput type={type} fields={fields} />
     </div>
@@ -232,15 +237,10 @@ function CAnswerBox({ qid, value, onChange, onGenerate, busy, err, hasEvidence }
   );
 }
 
-const GROUPS = [
-  { type: 'productivity', qid: 'c11' },
-  { type: 'financial', qid: 'c12' },
-  { type: 'operational', qid: 'c13' },
-];
-
 // `results` is the page's editable working list for this initiative; edits and
-// add/delete flow up to the page. Results are grouped by type, and each group's
-// synthesized C answer box sits directly beneath its cards.
+// add/delete flow up to the page. The three sub-sections are always visible in
+// C11 → C12 → C13 order, each with its own add button, its own filtered cards,
+// and its synthesized C answer box directly beneath them.
 export default function SectionC({
   results,
   onChange,
@@ -255,35 +255,49 @@ export default function SectionC({
 }) {
   return (
     <div>
-      <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <p className="eyebrow">Measured outcomes</p>
-          <h2 className="section-title mt-1">Section C, measurable results</h2>
-        </div>
-        <Btn variant="primary" onClick={onAdd}>
-          Add result
-        </Btn>
+      <div className="mb-4">
+        <p className="eyebrow">Measured outcomes</p>
+        <h2 className="section-title mt-1">Section C, measurable results</h2>
       </div>
 
-      {results.length === 0 && <p className="mb-4 text-sm text-slate-500">No results yet.</p>}
-
       <div className="space-y-8">
-        {GROUPS.map(({ type, qid }) => {
+        {GROUPS.map(({ type, qid, title, blurb, addLabel, tone }) => {
           // Keep each card's original index so edit/delete/tighten stay correct.
           const items = results.map((r, idx) => ({ r, idx })).filter(({ r }) => (r.type || 'productivity') === type);
           return (
-            <div key={type}>
-              <div className="grid gap-4">
-                {items.map(({ r, idx }) => (
-                  <ResultCard
-                    key={r._key || r.id}
-                    result={r}
-                    onChange={(next) => onChange(idx, next)}
-                    onDelete={() => onDelete(idx)}
-                    tightenId={100 + idx}
-                  />
-                ))}
+            <section key={type} className="rounded-3xl border border-slate-200/80 bg-white/50 p-4 sm:p-5">
+              <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+                <div>
+                  <span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.12em] ring-1 ${tone}`}>
+                    {items.length} result{items.length === 1 ? '' : 's'}
+                  </span>
+                  <h3 className="mt-2 text-lg font-semibold tracking-tight text-slate-950">{title}</h3>
+                  <p className="mt-1 text-sm text-slate-500">{blurb}</p>
+                </div>
+                <Btn variant="primary" onClick={() => onAdd(type)}>
+                  {addLabel}
+                </Btn>
               </div>
+
+              {items.length === 0 ? (
+                <p className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/70 px-4 py-6 text-center text-sm text-slate-500">
+                  No results yet. Add one to build the evidence for this question.
+                </p>
+              ) : (
+                <div className="grid gap-4">
+                  {items.map(({ r, idx }, n) => (
+                    <ResultCard
+                      key={r._key || r.id}
+                      result={r}
+                      index={n + 1}
+                      onChange={(next) => onChange(idx, next)}
+                      onDelete={() => onDelete(idx)}
+                      tightenId={100 + idx}
+                    />
+                  ))}
+                </div>
+              )}
+
               <CAnswerBox
                 qid={qid}
                 value={answers[qid]}
@@ -293,7 +307,7 @@ export default function SectionC({
                 err={genErr[qid]}
                 hasEvidence={evidenceHas(qid)}
               />
-            </div>
+            </section>
           );
         })}
       </div>

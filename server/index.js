@@ -194,11 +194,21 @@ app.put('/api/initiatives/:id/section-d', async (req, res) => {
 });
 
 // ---------- OpenAI drafting ----------
-const SYSTEM_PROMPT =
+// C11–C13 synthesise several Section C results, so they should be substantive:
+// target 150–300 words. Everything else just keeps the form's real 300-word cap.
+// The 300-word ceiling is absolute either way — the range is a target, not a quota.
+const lengthRule = (qid) =>
+  qid.startsWith('c')
+    ? 'Aim for 150-300 words. If the evidence provided is too thin to responsibly reach 150 words, ' +
+      'write a shorter, honest answer instead — never invent figures, tools, outcomes, or claims not ' +
+      'present in the evidence to reach the word count. Absolute ceiling: 300 words.'
+    : 'Hard limit: 300 words.';
+
+const systemPrompt = (qid) =>
   'You draft answers for a Singapore government (IMDA) SME AI Impact Awards nomination. ' +
   'Write ONLY from the evidence given — never invent numbers, tools, or outcomes not present in the input. ' +
   'If evidence is thin, write a shorter, honest paragraph rather than padding with generic claims. ' +
-  'Hard limit: 300 words. Plain, professional, third person about the company (United Ceres College).';
+  `${lengthRule(qid)} Plain, professional, third person about the company (United Ceres College).`;
 
 const QUESTION_INTENT = {
   b8: 'Describe the specific business challenge United Ceres College faced and how it impacted operations.',
@@ -247,7 +257,7 @@ app.post('/api/draft/:questionId', async (req, res) => {
       model: cfg.analysisModel,
       temperature: 0.4,
       messages: [
-        { role: 'system', content: withOrgContext(SYSTEM_PROMPT, cfg.orgContext) },
+        { role: 'system', content: withOrgContext(systemPrompt(qid), cfg.orgContext) },
         {
           role: 'user',
           content:
@@ -264,7 +274,9 @@ app.post('/api/draft/:questionId', async (req, res) => {
 
 const TIGHTEN_SYSTEM =
   'Rewrite the user text into a tighter, more professional register for an IMDA SME AI Impact Awards nomination. ' +
-  'Do NOT change any facts, numbers, or claims. Do not add new information. British spelling. Return only the rewritten text.';
+  'Do NOT change any facts, numbers, or claims. Do not add new information. ' +
+  'Never add facts, numbers, or claims beyond what the input already states. ' +
+  'British spelling. Return only the rewritten text.';
 
 app.post('/api/tighten', async (req, res) => {
   const text = (req.body && req.body.text) || '';
