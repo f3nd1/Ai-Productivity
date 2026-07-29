@@ -9,7 +9,7 @@ import { AiRewriteButtons, Btn, PlaceholderNotice, TextInput, WordCountCopy } fr
 // whatever the user ends up with is stored in the same `unit` field either way.
 const UNITS = ['%', 'hours', 'minutes', 'days', 'working days', '$', 'count', 'errors', 'calls', 'records'];
 
-// Suggestions only — the metric field accepts anything typed.
+// Suggestions only — the combobox fields accept anything typed.
 const METRIC_SUGGESTIONS = [
   'completion time',
   'error rate',
@@ -20,6 +20,16 @@ const METRIC_SUGGESTIONS = [
   'resolution time',
   'throughput',
   'cost per unit',
+];
+
+const COST_CATEGORIES = [
+  'Labour cost',
+  'Software licensing',
+  'Cloud hosting / infrastructure',
+  'Consulting / professional fees',
+  'Training cost',
+  'Equipment cost',
+  'Operating cost (general)',
 ];
 
 const OTHER = '__other__';
@@ -71,8 +81,9 @@ function UnitField({ value, onChange }) {
 }
 
 // Free-typing combobox: suggestions are a convenience, never a constraint —
-// anything typed is kept verbatim, whether or not it matches the list.
-function MetricField({ label, value, onChange, placeholder }) {
+// anything typed is kept verbatim, whether or not it matches the list. Shared by
+// Metric name and Cost category; the caller supplies the suggestion list.
+function ComboField({ label, value, onChange, placeholder, suggestions }) {
   const [open, setOpen] = useState(false);
   const boxRef = useRef(null);
 
@@ -86,7 +97,7 @@ function MetricField({ label, value, onChange, placeholder }) {
   }, [open]);
 
   const typed = (value || '').trim().toLowerCase();
-  const matches = METRIC_SUGGESTIONS.filter((s) => !typed || s.includes(typed));
+  const matches = suggestions.filter((s) => !typed || s.toLowerCase().includes(typed));
 
   return (
     <div className="relative" ref={boxRef}>
@@ -204,11 +215,12 @@ function TypeFields({ type, f, set, tightenId }) {
   if (type === 'productivity') {
     return (
       <div className="grid gap-3 sm:grid-cols-2">
-        <MetricField
+        <ComboField
           label="Metric name"
           value={f.metric}
           onChange={(v) => set('metric', v)}
           placeholder="e.g. completion time"
+          suggestions={METRIC_SUGGESTIONS}
         />
         <UnitField value={f.unit} onChange={(v) => set('unit', v)} />
         <Num label="Before value" value={f.before} onChange={(v) => set('before', v)} />
@@ -235,7 +247,13 @@ function TypeFields({ type, f, set, tightenId }) {
     const timeBased = f.timeBased !== false;
     return (
       <div className="grid gap-3 sm:grid-cols-2">
-        <TextInput label="Cost category" value={f.costCategory || ''} onChange={(e) => set('costCategory', e.target.value)} />
+        <ComboField
+          label="Cost category"
+          value={f.costCategory}
+          onChange={(v) => set('costCategory', v)}
+          placeholder="e.g. Labour cost"
+          suggestions={COST_CATEGORIES}
+        />
         <label className="block">
           <span className="field-label">Saving type</span>
           <select
@@ -266,11 +284,12 @@ function TypeFields({ type, f, set, tightenId }) {
   // operational
   return (
     <div className="grid gap-3 sm:grid-cols-2">
-      <MetricField
+      <ComboField
         label="Metric name"
         value={f.metric}
         onChange={(v) => set('metric', v)}
         placeholder="e.g. resolution time"
+        suggestions={METRIC_SUGGESTIONS}
       />
       <UnitField value={f.unit} onChange={(v) => set('unit', v)} />
       <Num label="Before rate" value={f.before} onChange={(v) => set('before', v)} />
