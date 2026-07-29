@@ -36,6 +36,51 @@ The field provides common UCC department suggestions but remains editable, so a 
 A full Vite production build was not completed because dependency installation timed out in the verification environment.
 
 
+## July 2026, completeness fix + initiative management
+
+### Required Supabase migration (additive, safe)
+
+```sql
+alter table initiatives add column if not exists not_applicable jsonb not null default '{}'::jsonb;
+alter table initiatives add column if not exists updated_at timestamptz;
+```
+
+Nothing is deleted. Existing rows get the defaults; `updated_at` starts NULL and
+fills in on each initiative's next save.
+
+### Two data-integrity fixes
+
+- **Completeness was measuring text, not evidence.** An initiative with zero
+  Section C results could read 9/9 "submission ready": stored generated C text
+  scored a point on its own, and the shared Section D handed its three points to
+  every initiative regardless of whether that initiative contributed anything.
+  Now C11/C12/C13 each require a linked result of that type (or an explicit
+  "not applicable" tick), and the shared Section D only counts for initiatives
+  that have some Section C evidence of their own. On the walkthrough data, the
+  worst offender drops from 9/9 to 3/9.
+- **Stale generated answers stayed visible and copyable.** A question with no
+  evidence showed "Add a [Type] result first" while still displaying old
+  generated text with a working Copy button. That text is now hidden (not
+  deleted) until evidence exists again, with a note explaining where it went.
+
+### Initiative management
+
+- Initiatives list gained live name search, a department filter (including
+  "Not set"), and sorting by name, completeness either way, or recently updated.
+- Cards below 40% completeness are flagged "Needs evidence", and call out
+  generated answers with no evidence behind them.
+- "Add initiative" now asks for a name (required) and department (optional)
+  before creating anything — no more silent "Untitled initiative" rows.
+- "Duplicate" on each card copies B8/B9/B10 and department into a newly named
+  initiative. Section C results are deliberately not copied.
+- The initiative page flags an unset department next to the field and in the
+  header.
+- Overview's table sorts by any column; missing values always sort last so
+  "Complete, ascending" surfaces the weakest initiatives first.
+
+Still open for a future round: evidence attachments (file upload) and per-field
+edit history.
+
 ## July 2026, Section D goes overall + AI expansion
 
 ### Required Supabase migration, THIS ONE DELETES DATA

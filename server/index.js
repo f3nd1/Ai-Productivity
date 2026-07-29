@@ -56,12 +56,19 @@ app.get('/api/initiatives', async (_req, res) => {
 
 app.post('/api/initiatives', async (req, res) => {
   if (!supabase) return needDb(res);
-  // No B8 check here: the client now creates a blank initiative immediately
-  // and opens its page, where B8 is required before that section can be saved.
-  const { name, department, b8_problem, b9_significance, b10_solution } = req.body;
+  // No B8 check here: the client creates the initiative from a name prompt and
+  // opens its page, where B8 is required before that section can be saved.
+  const { name, department, b8_problem, b9_significance, b10_solution, not_applicable } = req.body;
   const { data, error } = await supabase
     .from('initiatives')
-    .insert({ name, department, b8_problem, b9_significance, b10_solution })
+    .insert({
+      name,
+      department,
+      b8_problem,
+      b9_significance,
+      b10_solution,
+      not_applicable: not_applicable || {},
+    })
     .select()
     .single();
   if (error) return res.status(500).json({ error: error.message });
@@ -70,11 +77,21 @@ app.post('/api/initiatives', async (req, res) => {
 
 app.put('/api/initiatives/:id', async (req, res) => {
   if (!supabase) return needDb(res);
-  const { name, department, b8_problem, b9_significance, b10_solution } = req.body;
+  const { name, department, b8_problem, b9_significance, b10_solution, not_applicable } = req.body;
   if (!b8_problem || !b8_problem.trim()) return res.status(400).json({ error: 'B8 business problem is required.' });
+  const patch = {
+    name,
+    department,
+    b8_problem,
+    b9_significance,
+    b10_solution,
+    updated_at: new Date().toISOString(), // stamped here rather than by a trigger
+  };
+  // Only overwrite the N/A declarations when the client actually sent them.
+  if (not_applicable !== undefined) patch.not_applicable = not_applicable || {};
   const { data, error } = await supabase
     .from('initiatives')
-    .update({ name, department, b8_problem, b9_significance, b10_solution })
+    .update(patch)
     .eq('id', req.params.id)
     .select()
     .single();

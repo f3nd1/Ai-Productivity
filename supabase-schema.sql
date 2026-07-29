@@ -6,12 +6,17 @@ create extension if not exists "pgcrypto";
 create table if not exists initiatives (
   id uuid primary key default gen_random_uuid(),
   created_at timestamptz not null default now(),
+  updated_at timestamptz,
   name text,
   department text,
   b8_problem text,
   b9_significance text,
   b10_solution text,
-  final_answers jsonb not null default '{}'::jsonb
+  final_answers jsonb not null default '{}'::jsonb,
+  -- Which of C11/C12/C13 this initiative has declared genuinely not applicable,
+  -- e.g. {"c12": true}. A declared question counts as answered for completeness
+  -- without needing a Section C result behind it.
+  not_applicable jsonb not null default '{}'::jsonb
 );
 
 create table if not exists results (
@@ -115,3 +120,18 @@ alter table initiatives add column if not exists department text;
 delete from section_d;
 drop index if exists section_d_initiative_id_key;
 alter table section_d drop column if exists initiative_id;
+
+-- ============================================================
+-- MIGRATION — run manually, once, in the Supabase SQL editor.
+-- Two additive columns on initiatives. Non-destructive: existing rows get the
+-- defaults and behave exactly as before.
+--   not_applicable — lets an initiative declare C11/C12/C13 genuinely N/A, so
+--     completeness can require real Section C evidence for every C question
+--     that ISN'T declared N/A (previously any stored text scored a point,
+--     which let an initiative with zero results show 9/9).
+--   updated_at — powers the Initiatives list's "recently updated" sort. Existing
+--     rows start NULL and sort last until their next save; the server stamps it
+--     on every initiative update.
+-- ============================================================
+alter table initiatives add column if not exists not_applicable jsonb not null default '{}'::jsonb;
+alter table initiatives add column if not exists updated_at timestamptz;

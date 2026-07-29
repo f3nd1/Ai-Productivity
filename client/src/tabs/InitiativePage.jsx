@@ -8,7 +8,7 @@ import { Btn, TextInput, NarrativeField } from '../ui.jsx';
 import SectionC from './SectionC.jsx';
 import { ExportCard } from './Export.jsx';
 
-const DEPARTMENTS = [
+export const DEPARTMENTS = [
   'Academic',
   'Admission',
   'Finance',
@@ -88,10 +88,16 @@ function InitiativeInfo({ info, setInfo }) {
           onChange={(e) => set('name')(e.target.value)}
           placeholder="e.g. Claude for Quality Action drafting"
         />
-        <DepartmentField
-          value={info.department || ''}
-          onChange={set('department')}
-        />
+        <div>
+          <DepartmentField value={info.department || ''} onChange={set('department')} />
+          {/* Department is easy to skip silently, so say so where it's set. */}
+          {!info.department?.trim() && (
+            <p className="mt-1.5 text-xs font-medium text-amber-600">
+              Department not set — pick one so this initiative appears under the right department in
+              Overview.
+            </p>
+          )}
+        </div>
       </div>
       <NarrativeField q={Q.b8} value={info.b8_problem} onChange={set('b8_problem')} tightenId={1} tightenOrder={1} />
       <NarrativeField q={Q.b9} value={info.b9_significance} onChange={set('b9_significance')} tightenId={2} tightenOrder={2} />
@@ -121,6 +127,7 @@ export default function InitiativePage({ initiative, results, sectionD, reload, 
     resultsFor(initiative.id, results).map((r) => ({ ...r, _key: `db-${r.id}` }))
   );
   const [answers, setAnswers] = useState({});
+  const [notApplicable, setNotApplicable] = useState(initiative.not_applicable || {});
 
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState(null);
@@ -138,7 +145,7 @@ export default function InitiativePage({ initiative, results, sectionD, reload, 
 
   // Latest state for the debounced autosave / save mutex (avoids stale closures).
   const stateRef = useRef();
-  stateRef.current = { info, cResults, answers };
+  stateRef.current = { info, cResults, answers, notApplicable };
 
   const liveInitiative = { ...initiative, ...info };
   const evidenceCtx = { initiative: liveInitiative, results: cResults, sectionD };
@@ -180,7 +187,7 @@ export default function InitiativePage({ initiative, results, sectionD, reload, 
       setErr(null);
     }
     try {
-      await api.updateInitiative(initiative.id, cur.info);
+      await api.updateInitiative(initiative.id, { ...cur.info, not_applicable: cur.notApplicable || {} });
       await api.saveFinalAnswers(initiative.id, pickCAnswers(cur.answers));
       // Create new results / update existing; collect ids for the created ones.
       const idByKey = {};
@@ -332,7 +339,13 @@ export default function InitiativePage({ initiative, results, sectionD, reload, 
 
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
-            <p className="eyebrow">{info.department?.trim() || 'Department not set'}</p>
+            {info.department?.trim() ? (
+              <p className="eyebrow">{info.department.trim()}</p>
+            ) : (
+              <span className="inline-flex rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.12em] text-amber-700 ring-1 ring-amber-200">
+                Department not set
+              </span>
+            )}
             <h1 className="mt-1 text-2xl font-semibold tracking-tight text-slate-950 sm:text-3xl">
               {info.name || 'Untitled initiative'}
             </h1>
@@ -355,6 +368,8 @@ export default function InitiativePage({ initiative, results, sectionD, reload, 
           genBusy={genBusy}
           genErr={genErr}
           evidenceHas={evidenceHas}
+          notApplicable={notApplicable}
+          setNotApplicable={setNotApplicable}
         />
 
         <section>

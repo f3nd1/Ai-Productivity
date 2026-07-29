@@ -28,7 +28,7 @@ Three layers, all talking JSON over `/api/*`:
 - **Supabase (Postgres)** — reached **only** from the server using the **service-role key**. There is no anon key and no client-side Supabase access anywhere; the browser never holds a DB or API secret. All persistence goes through Express.
 
 ### Data model (see `supabase-schema.sql`)
-- `initiatives` — one AI use case: `name`, `department`, B narratives `b8_problem`/`b9_significance`/`b10_solution`, and `final_answers` (jsonb; **only** the generated C11/C12/C13 answers are stored here — B/D raw fields are their own answers).
+- `initiatives` — one AI use case: `name`, `department`, B narratives `b8_problem`/`b9_significance`/`b10_solution`, `final_answers` (jsonb; **only** the generated C11/C12/C13 answers are stored here — B/D raw fields are their own answers), `not_applicable` (jsonb; which of c11/c12/c13 this initiative declares genuinely N/A), and `updated_at` (stamped by the server on every update, powers the "recently updated" sort).
 - `results` — Section C measurable results, FK to one initiative, `type` in `('productivity','financial','operational')`, type-specific inputs in `fields` (jsonb).
 - `section_d` — **one overall singleton row** for the whole submission. (It was briefly per-initiative via `initiative_id`; that column was dropped and the rows discarded — see the last migration block.) Section D is the closing/conclusion page, reached from its own top-level tab, not from an initiative.
 - `app_settings` — singleton row: OpenAI enable toggle, key, analysis/utility model choices, and persistent `org_context`.
@@ -43,6 +43,13 @@ Everything about one initiative lives on one page and is owned by this component
 - **B8 is required**: `persist()` aborts entirely if `b8_problem` is empty (explicit Save shows an error, autosave silently skips).
 
 ### Calculators are pure and shared — never duplicate them
+### Completeness scoring is evidence-based, not text-based (`overview.js`)
+`completeness(initiative, results, sectionD)` returns `{ score, questions, thin, stale, hasAnyC, resultCount }`. The rules exist because text alone once scored a point, letting an initiative with **zero** Section C results read 9/9 "submission ready":
+- **C11/C12/C13** need a linked result of that type, or an explicit `not_applicable` declaration. Stored generated text with no results behind it scores `'stale'` — never a point.
+- **D14/D15/D16** (shared globally) only count for an initiative that has *some* Section C evidence; otherwise `'blocked'`. An initiative contributing nothing doesn't inherit the shared section's credit.
+- B/D prose under `THIN_WORDS` scores but is flagged `'thin'`, so the UI can distinguish evidence-backed from prose-only.
+Don't reintroduce "field has text ⇒ complete" anywhere. `overview.test.mjs` pins the whole table, including the original 9/9 regression.
+
 `calc.js` (`computeResult(type, fields)`) returns `{ metrics: [{label,value}], sentence, warning }` plus raw numbers (`pct`, `monthly`, `annual`) used for aggregation. These same functions drive the Section C live preview, the Export block, and the Overview rollup, guaranteeing numbers can't drift between views. **Do not change these formulas**, and when you need a computed figure elsewhere, reuse `computeResult` (or add an additive raw field) rather than re-deriving. `overview.js` (`computeOverview`) and `export.js` are pure aggregation/formatting modules built on top; each has a `*.test.mjs`.
 
 ### AI + settings flow

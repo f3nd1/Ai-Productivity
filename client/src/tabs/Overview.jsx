@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { computeOverview, overviewRowsToCsv } from '../overview.js';
+import { computeOverview, overviewRowsToCsv, OVERVIEW_COLUMNS, sortOverviewRows } from '../overview.js';
 import { Btn } from '../ui.jsx';
 
 const fmtMoney = (n) => '$' + Math.round(n).toLocaleString('en-GB');
@@ -80,8 +80,33 @@ function downloadCsv(rows, department) {
   URL.revokeObjectURL(url);
 }
 
+function SortHeader({ col, sort, onSort }) {
+  const active = sort.key === col.key;
+  return (
+    <th className="px-5 py-3.5 font-semibold">
+      <button
+        className={`inline-flex items-center gap-1 uppercase tracking-[0.12em] transition hover:text-slate-800 ${
+          active ? 'text-slate-900' : ''
+        }`}
+        onClick={() => onSort(col.key)}
+        title={`Sort by ${col.label}`}
+      >
+        {col.label}
+        <span className={active ? 'text-indigo-600' : 'text-slate-300'}>
+          {active ? (sort.dir === 'asc' ? '▲' : '▼') : '↕'}
+        </span>
+      </button>
+    </th>
+  );
+}
+
 export default function Overview({ initiatives, results, sectionD, onOpenInitiative }) {
   const [selectedDepartment, setSelectedDepartment] = useState('all');
+  const [sort, setSort] = useState({ key: 'name', dir: 'asc' });
+
+  // Same column re-clicked flips direction; a new column starts ascending.
+  const toggleSort = (key) =>
+    setSort((s) => (s.key === key ? { key, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: 'asc' }));
 
   const departmentOptions = useMemo(
     () => Array.from(new Set(initiatives.map((initiative) => initiative.department?.trim()).filter(Boolean))).sort(),
@@ -103,10 +128,8 @@ export default function Overview({ initiatives, results, sectionD, onOpenInitiat
     };
   }, [initiatives, results, sectionD, selectedDepartment]);
 
-  const { summary, rows } = useMemo(
-    () => computeOverview(filteredData),
-    [filteredData]
-  );
+  const { summary, rows: unsorted } = useMemo(() => computeOverview(filteredData), [filteredData]);
+  const rows = useMemo(() => sortOverviewRows(unsorted, sort.key, sort.dir), [unsorted, sort]);
 
   if (initiatives.length === 0) {
     return (
@@ -207,12 +230,9 @@ export default function Overview({ initiatives, results, sectionD, onOpenInitiat
             <table className="w-full min-w-[760px] text-sm">
               <thead>
                 <tr className="bg-slate-50/80 text-left text-[11px] uppercase tracking-[0.12em] text-slate-500">
-                  <th className="px-5 py-3.5 font-semibold">Initiative</th>
-                  <th className="px-5 py-3.5 font-semibold">Department</th>
-                  <th className="px-5 py-3.5 font-semibold">C results</th>
-                  <th className="px-5 py-3.5 font-semibold">Saved monthly</th>
-                  <th className="px-5 py-3.5 font-semibold">Productivity</th>
-                  <th className="px-5 py-3.5 font-semibold">Complete</th>
+                  {OVERVIEW_COLUMNS.map((col) => (
+                    <SortHeader key={col.key} col={col} sort={sort} onSort={toggleSort} />
+                  ))}
                 </tr>
               </thead>
               <tbody>

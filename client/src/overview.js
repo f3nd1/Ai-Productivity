@@ -22,24 +22,74 @@ export function d15HoursPerWeek(sd) {
   return Number.isFinite(h) && Number.isFinite(s) ? h * s : null;
 }
 
-// How many of the 9 form questions have usable content: raw text for B/D,
-// a generated answer (final_answers) for C. `sd` is the ONE overall Section D,
-// so the last three checks contribute equally to every initiative's score —
-// that's correct, the submission genuinely shares those three answers.
-export function completeness(initiative, sd) {
+// A B/D answer this short is almost certainly a placeholder rather than a real
+// answer. It still scores — the question IS answered — but it's flagged so the
+// UI can distinguish "backed by evidence" from "text exists but looks thin".
+const THIN_WORDS = 20;
+const wordCount = (v) => String(v || '').trim().split(/\s+/).filter(Boolean).length;
+
+// Per-question status for one initiative. Statuses that count toward the score:
+//   'evidence' — C: at least one linked result of that type. B/D: real prose.
+//   'thin'     — B/D: answered, but short enough to be worth a second look.
+//   'na'       — C: explicitly declared not applicable to this initiative.
+// Statuses that do NOT count:
+//   'empty'    — nothing there.
+//   'stale'    — C: generated text is stored but the results behind it are gone
+//                (or never existed). Text alone is not evidence; this is exactly
+//                the case that used to score a free point.
+//   'blocked'  — D: the shared Section D is written, but this initiative has no
+//                Section C evidence of its own, so it isn't yet contributing to
+//                the submission and doesn't inherit the shared answer's credit.
+const COUNTS = new Set(['evidence', 'thin', 'na']);
+
+const textStatus = (v) => {
+  if (!filled(v)) return 'empty';
+  return wordCount(v) < THIN_WORDS ? 'thin' : 'evidence';
+};
+
+// `results` is every result (any initiative) or just this initiative's — both
+// work, since it filters by initiative_id. `sd` is the ONE overall Section D.
+export function completeness(initiative, results = [], sd = null) {
+  const own = (results || []).filter((r) => r.initiative_id === initiative.id);
+  const na = initiative.not_applicable || {};
   const fa = initiative.final_answers || {};
-  const checks = [
-    initiative.b8_problem,
-    initiative.b9_significance,
-    initiative.b10_solution,
-    fa.c11,
-    fa.c12,
-    fa.c13,
-    sd?.d14_narrative,
-    sd?.d15_narrative,
-    sd?.d16_narrative,
-  ];
-  return checks.filter(filled).length; // out of 9
+  const countOf = (type) => own.filter((r) => r.type === type).length;
+
+  // Does this initiative contribute ANY measurable evidence yet? The shared
+  // Section D only counts for initiatives that do.
+  const hasAnyC = own.length > 0;
+
+  const cStatus = (qid, type) => {
+    if (countOf(type) > 0) return 'evidence';
+    if (na[qid] === true) return 'na';
+    return filled(fa[qid]) ? 'stale' : 'empty';
+  };
+  const dStatus = (v) => (hasAnyC ? textStatus(v) : filled(v) ? 'blocked' : 'empty');
+
+  const questions = {
+    b8: textStatus(initiative.b8_problem),
+    b9: textStatus(initiative.b9_significance),
+    b10: textStatus(initiative.b10_solution),
+    c11: cStatus('c11', 'productivity'),
+    c12: cStatus('c12', 'financial'),
+    c13: cStatus('c13', 'operational'),
+    d14: dStatus(sd?.d14_narrative),
+    d15: dStatus(sd?.d15_narrative),
+    d16: dStatus(sd?.d16_narrative),
+  };
+
+  const values = Object.values(questions);
+  return {
+    questions,
+    hasAnyC,
+    resultCount: own.length,
+    score: values.filter((s) => COUNTS.has(s)).length, // out of 9
+    // Questions carried by prose alone — "answered" but worth revisiting.
+    thin: values.filter((s) => s === 'thin').length,
+    // Generated C text with no results behind it. Never counts; surfaced so the
+    // UI can warn instead of silently dropping the score.
+    stale: values.filter((s) => s === 'stale').length,
+  };
 }
 
 // `sectionD` is the single overall Section D row (or null). Its figures belong
@@ -64,6 +114,7 @@ export function computeOverview({ initiatives = [], results = [], sectionD = nul
         if (Number.isFinite(out.pct)) pcts.push(out.pct);
       }
     }
+    const score = completeness(init, rs, sectionD);
     return {
       id: init.id,
       name: init.name || 'Untitled initiative',
@@ -71,7 +122,10 @@ export function computeOverview({ initiatives = [], results = [], sectionD = nul
       counts,
       monthly: hasFinancial ? monthly : null,
       avgProductivityPct: pcts.length ? round1(pcts.reduce((a, b) => a + b, 0) / pcts.length) : null,
-      completeness: completeness(init, sectionD),
+      completeness: score.score,
+      thin: score.thin,
+      stale: score.stale,
+      updatedAt: init.updated_at || init.created_at || null,
     };
   });
 
@@ -105,6 +159,37 @@ export function computeOverview({ initiatives = [], results = [], sectionD = nul
   return { summary, rows };
 }
 
+
+// Sortable columns for the Overview table. Kept here (not in the JSX) so the
+// comparator is testable — `label` is the only presentational bit.
+export const OVERVIEW_COLUMNS = [
+  { key: 'name', label: 'Initiative', value: (r) => (r.name || '').toLowerCase(), text: true },
+  { key: 'department', label: 'Department', value: (r) => (r.department || '').toLowerCase(), text: true },
+  {
+    key: 'results',
+    label: 'C results',
+    value: (r) => r.counts.productivity + r.counts.financial + r.counts.operational,
+  },
+  { key: 'monthly', label: 'Saved monthly', value: (r) => r.monthly },
+  { key: 'productivity', label: 'Productivity', value: (r) => r.avgProductivityPct },
+  { key: 'completeness', label: 'Complete', value: (r) => r.completeness },
+];
+
+// Missing values (no financial result, no department) always sort last in BOTH
+// directions — otherwise "saved monthly, ascending" would lead with a wall of
+// blanks and bury the figures the user actually wants to triage.
+export function sortOverviewRows(rows, key, dir = 'asc') {
+  const col = OVERVIEW_COLUMNS.find((c) => c.key === key);
+  if (!col) return rows;
+  const sign = dir === 'asc' ? 1 : -1;
+  const missing = (v) => v === null || v === undefined || v === '';
+  return [...rows].sort((a, b) => {
+    const av = col.value(a);
+    const bv = col.value(b);
+    if (missing(av) || missing(bv)) return missing(av) && missing(bv) ? 0 : missing(av) ? 1 : -1;
+    return (col.text ? av.localeCompare(bv) : av - bv) * sign;
+  });
+}
 
 function csvCell(value) {
   const text = value == null ? '' : String(value);

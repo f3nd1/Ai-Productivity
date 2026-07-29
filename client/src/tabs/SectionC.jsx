@@ -356,16 +356,38 @@ function ResultCard({ result, index, onChange, onDelete, tightenId }) {
 // C11/C12/C13 genuinely synthesise multiple results, so they keep a Generate
 // step (evidence-gated) — unlike the B/D fields whose raw text is the answer.
 function CAnswerBox({ qid, value, onChange, onGenerate, busy, err, hasEvidence }) {
+  // With no evidence behind it, a stored answer is stale — it was generated from
+  // results that have since been deleted, or before any existed. Hide it rather
+  // than delete it: hiding is reversible, so re-adding a result (or undoing an
+  // accidental delete) brings the text back, and nothing the user wrote is
+  // destroyed by a click. Critically it must not be copyable or editable here —
+  // an editable box bound to a hidden value would silently overwrite it.
+  if (!hasEvidence) {
+    return (
+      <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50/70 p-5">
+        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+          <h4 className="font-medium text-slate-500">{Q[qid].label}</h4>
+          <span className="text-xs italic text-slate-400">{EVIDENCE_HINT[qid]}</span>
+        </div>
+        <p className="text-sm text-slate-400">Not generated yet.</p>
+        {value?.trim() && (
+          <p className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-800">
+            An earlier generated answer is stored for this question but is hidden: the Section C
+            results it was written from no longer exist. Add a result of this type to bring it back
+            and regenerate it against the current evidence.
+          </p>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="mt-4 rounded-2xl border border-indigo-100 bg-indigo-50/50 p-5">
       <div className="mb-2 flex items-center justify-between">
         <h4 className="font-medium text-slate-800">{Q[qid].label}</h4>
-        <div className="flex items-center gap-2">
-          {!hasEvidence && <span className="text-xs italic text-slate-400">{EVIDENCE_HINT[qid]}</span>}
-          <Btn onClick={onGenerate} disabled={busy || !hasEvidence}>
-            {busy ? 'Generating…' : value ? 'Regenerate' : 'Generate'}
-          </Btn>
-        </div>
+        <Btn onClick={onGenerate} disabled={busy}>
+          {busy ? 'Generating…' : value ? 'Regenerate' : 'Generate'}
+        </Btn>
       </div>
       <textarea
         rows={5}
@@ -395,6 +417,8 @@ export default function SectionC({
   genBusy,
   genErr,
   evidenceHas,
+  notApplicable,
+  setNotApplicable,
 }) {
   return (
     <div>
@@ -407,6 +431,7 @@ export default function SectionC({
         {GROUPS.map(({ type, qid, title, blurb, addLabel, tone }) => {
           // Keep each card's original index so edit/delete/tighten stay correct.
           const items = results.map((r, idx) => ({ r, idx })).filter(({ r }) => (r.type || 'productivity') === type);
+          const na = notApplicable?.[qid] === true;
           return (
             <section key={type} className="rounded-3xl border border-slate-200/80 bg-white/50 p-4 sm:p-5">
               <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
@@ -417,14 +442,39 @@ export default function SectionC({
                   <h3 className="mt-2 text-lg font-semibold tracking-tight text-slate-950">{title}</h3>
                   <p className="mt-1 text-sm text-slate-500">{blurb}</p>
                 </div>
-                <Btn variant="primary" onClick={() => onAdd(type)}>
+                <Btn variant="primary" onClick={() => onAdd(type)} disabled={na}>
                   {addLabel}
                 </Btn>
               </div>
 
+              {/* Declaring a question N/A is how an initiative with genuinely no
+                  results of this type can still reach a complete score, without
+                  text alone being treated as evidence. */}
+              {items.length === 0 && (
+                <label className="mb-3 flex items-start gap-2.5 rounded-xl border border-slate-200 bg-white/70 px-3.5 py-2.5">
+                  <input
+                    type="checkbox"
+                    className="mt-0.5 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-400"
+                    checked={na}
+                    onChange={(e) =>
+                      setNotApplicable((s) => ({ ...(s || {}), [qid]: e.target.checked || undefined }))
+                    }
+                  />
+                  <span className="text-sm text-slate-600">
+                    Not applicable to this initiative
+                    <span className="block text-xs text-slate-400">
+                      Tick only if this initiative genuinely produced no {type} results. It then counts
+                      as answered without evidence.
+                    </span>
+                  </span>
+                </label>
+              )}
+
               {items.length === 0 ? (
                 <p className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/70 px-4 py-6 text-center text-sm text-slate-500">
-                  No results yet. Add one to build the evidence for this question.
+                  {na
+                    ? 'Marked not applicable to this initiative.'
+                    : 'No results yet. Add one to build the evidence for this question.'}
                 </p>
               ) : (
                 <div className="grid gap-4">
