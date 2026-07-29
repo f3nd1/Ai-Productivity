@@ -11,6 +11,8 @@ import {
   productivityBeforeAfter,
   formatCopyAll,
   copyToClipboard,
+  buildExportEvidence,
+  parseExportDraft,
 } from './export.js';
 
 const initiative = {
@@ -110,6 +112,58 @@ assert.ok(withNumbers.includes('Cycle per Month: '));
 // copy-all: without numbers section (no financial result on this initiative)
 const noNumbers = formatCopyAll({ finding: 'F', rootCause: 'R', actionTaken: 'A', generalNotes: 'G' }, null);
 assert.ok(!noNumbers.includes('Man-Day Rate'));
+
+// --- buildExportEvidence: only real app data reaches the model ---
+const evidence = buildExportEvidence(initiative, linked, sectionD);
+assert.ok(evidence.includes('B8 Business Problem: Manual QA took 20 hours weekly.'));
+assert.ok(evidence.includes('B10 Solution Effectiveness: Deployed an ML classifier'));
+assert.ok(evidence.includes('Result 1'));
+assert.ok(evidence.includes('Qualitative Note: Team noticed faster turnaround.'));
+assert.ok(evidence.includes('Calculated: Improved process speed by 30%'));
+assert.ok(evidence.includes('D14 Staff Adoption & Training: Trained 8 of 10 staff'));
+assert.ok(evidence.includes('D16 Future Readiness: Built internal AI expertise.'));
+// The other initiative's result must never leak into this initiative's evidence.
+assert.ok(!evidence.includes('Should not appear'));
+// Unset Section D numerics are omitted rather than sent as blanks.
+assert.ok(!evidence.includes('Staff Trained:'));
+
+// --- parseExportDraft: split the model's labelled reply into four fields ---
+const parsed = parseExportDraft(
+  'Finding:\nThe college faced manual QA delays.\n\n' +
+    'Root Cause & Resolution:\nAn ML classifier was deployed.\n\n' +
+    'Action Taken:\nStaff were trained over four weeks.\n\n' +
+    'General Notes:\nSaved $1,299 monthly.'
+);
+assert.equal(parsed.finding, 'The college faced manual QA delays.');
+assert.equal(parsed.rootCause, 'An ML classifier was deployed.');
+assert.equal(parsed.actionTaken, 'Staff were trained over four weeks.');
+assert.equal(parsed.generalNotes, 'Saved $1,299 monthly.');
+
+// Markdown bold, "and" for "&", and inline text after the label all tolerated.
+const messy = parseExportDraft(
+  '**Finding:** Problem statement here.\n' +
+    '**Root Cause and Resolution:** Solution here.\n' +
+    '## Action Taken:\nTraining here.\n' +
+    '**General Notes:** Figures here.'
+);
+assert.equal(messy.finding, 'Problem statement here.');
+assert.equal(messy.rootCause, 'Solution here.');
+assert.equal(messy.actionTaken, 'Training here.');
+assert.equal(messy.generalNotes, 'Figures here.');
+
+// A label mentioned inside prose must not truncate the field that contains it.
+const inline = parseExportDraft(
+  'Finding:\nThe finding notes the Action Taken: was insufficient.\n\nGeneral Notes:\nTail.'
+);
+assert.ok(inline.finding.includes('was insufficient'));
+assert.equal(inline.generalNotes, 'Tail.');
+
+// An omitted field returns '' so the caller can keep the existing text.
+const partial = parseExportDraft('Finding:\nOnly this one.');
+assert.equal(partial.finding, 'Only this one.');
+assert.equal(partial.rootCause, '');
+assert.equal(partial.actionTaken, '');
+assert.equal(parseExportDraft('').finding, '');
 
 // clipboard mock
 let captured = null;

@@ -36,6 +36,49 @@ The field provides common UCC department suggestions but remains editable, so a 
 A full Vite production build was not completed because dependency installation timed out in the verification environment.
 
 
+## July 2026, Section D goes overall + AI expansion
+
+### Required Supabase migration, THIS ONE DELETES DATA
+
+Run once in the Supabase SQL editor, after copying out anything you want to keep:
+
+```sql
+delete from section_d;
+drop index if exists section_d_initiative_id_key;
+alter table section_d drop column if exists initiative_id;
+```
+
+This discards **every existing per-initiative D14/D15/D16 row** — all D14
+narratives, staff-trained / total-staff / training-weeks figures, D15
+narratives, hours-freed / staff-affected figures and D16 narratives, for every
+initiative. Nothing is merged forward. This is deliberate: Section D is now one
+overall answer set for the whole submission, and there is no correct automatic
+way to combine several per-initiative answers into a single organisation-wide
+one. Re-enter Section D once on its new page afterwards.
+
+### What changed
+
+- Section D moved off the per-initiative page to its own top-level
+  "Overall / Section D" tab, positioned after Overview as the closing step. One
+  set of D14/D15/D16, same fields and calculators, its own Save + blur autosave.
+- Overview's summary now reports one organisation-wide adoption % and one
+  hours-freed total; the per-initiative table drops its D14/D15 columns (and so
+  does the CSV export), since those figures are no longer per initiative.
+- Export block gained **Generate with AI**, writing Finding / Root Cause &
+  Resolution / Action Taken / General Notes from the initiative's B and C
+  evidence plus the overall Section D. The assembled plain-text version still
+  shows until it is clicked, and every field stays editable after. The numeric
+  fields (Man-Day Rate, Before/After Time, Cycle per Month) are unchanged.
+- **Elaborate with AI** added next to every Tighten button (B8–B10, Section C
+  notes, overall D14–D16). It expands a thin fragment into fuller prose and is
+  forbidden from inventing anything: missing specifics come back as
+  `[add: ...]` placeholders, which the UI lists in a highlighted panel under
+  the field so it is obvious what still needs a real figure.
+- Section C Unit is now a dropdown (%, hours, minutes, days, working days, $,
+  count, errors, calls, records, Other) with an Other free-text fallback.
+- Section C Metric name is now a searchable combobox: it suggests common
+  metrics but accepts any free text.
+
 ## July 2026 follow-up update
 
 - Replaced the browser-dependent Department datalist with a proper select control.

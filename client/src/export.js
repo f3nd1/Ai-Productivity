@@ -149,3 +149,86 @@ export function formatCopyAll({ finding, rootCause, actionTaken, generalNotes },
 export function copyToClipboard(text) {
   return navigator.clipboard.writeText(text);
 }
+
+// ---------- AI "Generate with AI" for the export block ----------
+
+// Everything the model is allowed to draw on for one initiative: its B fields,
+// every linked Section C result (already rendered as labelled lines + the
+// calculated sentence), and the shared overall Section D. Assembled here rather
+// than server-side so the model only ever sees data the app actually holds.
+export function buildExportEvidence(initiative, linkedResults, sectionD) {
+  const b = [
+    line('Initiative', initiative?.name),
+    line('Department', initiative?.department),
+    line('B8 Business Problem', initiative?.b8_problem),
+    line('B9 Problem Significance', initiative?.b9_significance),
+    line('B10 Solution Effectiveness', initiative?.b10_solution),
+  ].filter(Boolean).join('\n');
+
+  const results = linkedResults
+    .map((r, i) => {
+      const sentence = computeResult(r.type, r.fields || {}).sentence;
+      const note = (r.fields?.note || '').trim();
+      return [
+        `Result ${i + 1}`,
+        resultLabelLines(r),
+        sentence ? line('Calculated', sentence) : null,
+        note ? line('Qualitative Note', note) : null,
+      ].filter(Boolean).join('\n');
+    })
+    .filter(Boolean)
+    .join('\n\n');
+
+  const d = sectionD || {};
+  const dLines = [
+    line('D14 Staff Adoption & Training', d.d14_narrative),
+    line('Staff Trained', d.d14_staff_trained),
+    line('Total Staff', d.d14_total_staff),
+    line('Training Duration (weeks)', d.d14_training_weeks),
+    line('D15 Impact on Work Processes', d.d15_narrative),
+    line('Hours Freed per Week', d.d15_hours_per_week),
+    line('Staff Affected', d.d15_staff_affected),
+    line('D16 Future Readiness', d.d16_narrative),
+  ].filter(Boolean).join('\n');
+
+  return [
+    b,
+    results ? `Section C measurable results:\n\n${results}` : '',
+    dLines ? `Section D (organisation-wide, shared by every initiative):\n${dLines}` : '',
+  ].filter(Boolean).join('\n\n');
+}
+
+// Field labels as the export prompt asks the model to emit them, in order.
+const EXPORT_FIELDS = [
+  { key: 'finding', label: 'Finding' },
+  { key: 'rootCause', label: 'Root Cause & Resolution' },
+  { key: 'actionTaken', label: 'Action Taken' },
+  { key: 'generalNotes', label: 'General Notes' },
+];
+
+// Split the model's labelled reply into the four export fields. Tolerates the
+// usual formatting drift — markdown bold/heading marks, "&" written as "and",
+// a label on its own line or followed inline by its text. A field the model
+// omitted comes back as '' so the caller can leave the existing text alone
+// rather than blanking it.
+export function parseExportDraft(text) {
+  const src = String(text || '');
+  const marks = '[*#\\s]*'; // markdown bold/heading noise around a label
+  // Locate every label first, then slice between them — so a label appearing
+  // inside a field's prose can't truncate the field before it.
+  const hits = [];
+  for (const { key, label } of EXPORT_FIELDS) {
+    const pattern = label.replace(/&/g, '(?:&|and)').replace(/ /g, '\\s+');
+    const re = new RegExp(`^${marks}${pattern}${marks}:${marks}`, 'im');
+    const m = re.exec(src);
+    if (m) hits.push({ key, start: m.index, end: m.index + m[0].length });
+  }
+  hits.sort((a, b) => a.start - b.start);
+
+  const out = { finding: '', rootCause: '', actionTaken: '', generalNotes: '' };
+  hits.forEach((hit, i) => {
+    const stop = i + 1 < hits.length ? hits[i + 1].start : src.length;
+    out[hit.key] = src.slice(hit.end, stop).trim();
+  });
+  return out;
+}

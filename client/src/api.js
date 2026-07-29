@@ -40,9 +40,9 @@ export const api = {
   updateResult: (id, b) => req('PUT', `/api/results/${id}`, b),
   deleteResult: (id) => req('DELETE', `/api/results/${id}`),
 
-  listSectionD: () => req('GET', '/api/section-d'), // bulk, for the Initiatives-list status summary
-  getSectionD: (initiativeId) => req('GET', `/api/initiatives/${initiativeId}/section-d`),
-  saveSectionD: (initiativeId, b) => req('PUT', `/api/initiatives/${initiativeId}/section-d`, b),
+  // Section D is one overall row for the whole submission, not per initiative.
+  getSectionD: () => req('GET', '/api/section-d'),
+  saveSectionD: (b) => req('PUT', '/api/section-d', b),
 
   getFinalAnswers: (initiativeId) => req('GET', `/api/initiatives/${initiativeId}/final-answers`),
   saveFinalAnswers: (initiativeId, answers) =>
@@ -50,6 +50,8 @@ export const api = {
 
   draft: (qid, evidence) => req('POST', `/api/draft/${qid}`, { evidence }),
   tighten: (text) => req('POST', '/api/tighten', { text }),
+  elaborate: (text) => req('POST', '/api/tighten', { text, mode: 'elaborate' }),
+  exportDraft: (evidence) => req('POST', '/api/export-draft', { evidence }),
   health: () => req('GET', '/api/health'),
 
   changelog: () => req('GET', '/api/changelog'),

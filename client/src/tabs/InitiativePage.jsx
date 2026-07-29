@@ -6,7 +6,6 @@ import { C_ORDER, hasEvidence, assembleEvidence, pickCAnswers } from '../evidenc
 import { TightenProvider, runTightenAll } from '../tighten.jsx';
 import { Btn, TextInput, NarrativeField } from '../ui.jsx';
 import SectionC from './SectionC.jsx';
-import SectionD from './SectionD.jsx';
 import { ExportCard } from './Export.jsx';
 
 const DEPARTMENTS = [
@@ -20,25 +19,6 @@ const DEPARTMENTS = [
   'Sales',
   'Student Support',
 ];
-
-const numOrNull = (v) => {
-  if (v === '' || v === null || v === undefined) return null;
-  const n = Number(v);
-  return Number.isNaN(n) ? null : n;
-};
-
-function sectionDBody(d) {
-  return {
-    d14_narrative: d.d14_narrative || null,
-    d14_staff_trained: numOrNull(d.d14_staff_trained),
-    d14_total_staff: numOrNull(d.d14_total_staff),
-    d14_training_weeks: numOrNull(d.d14_training_weeks),
-    d15_narrative: d.d15_narrative || null,
-    d15_hours_per_week: numOrNull(d.d15_hours_per_week),
-    d15_staff_affected: numOrNull(d.d15_staff_affected),
-    d16_narrative: d.d16_narrative || null,
-  };
-}
 
 function DepartmentField({ value, onChange }) {
   const isListed = DEPARTMENTS.includes(value);
@@ -120,7 +100,9 @@ function InitiativeInfo({ info, setInfo }) {
   );
 }
 
-export default function InitiativePage({ initiative, results, sectionDList, reload, onBack }) {
+// `sectionD` is the ONE overall Section D, read-only here — it's edited on its
+// own top-level page. This page needs it only as context for the Export block.
+export default function InitiativePage({ initiative, results, sectionD, reload, onBack }) {
   const registryRef = useRef(new Map());
   const savingRef = useRef(false);
   const generatingRef = useRef(false);
@@ -137,9 +119,6 @@ export default function InitiativePage({ initiative, results, sectionDList, relo
   // Editable working list of this initiative's results (seeded once on mount).
   const [cResults, setCResults] = useState(() =>
     resultsFor(initiative.id, results).map((r) => ({ ...r, _key: `db-${r.id}` }))
-  );
-  const [dFields, setDFields] = useState(
-    () => sectionDList.find((d) => d.initiative_id === initiative.id) || {}
   );
   const [answers, setAnswers] = useState({});
 
@@ -159,10 +138,10 @@ export default function InitiativePage({ initiative, results, sectionDList, relo
 
   // Latest state for the debounced autosave / save mutex (avoids stale closures).
   const stateRef = useRef();
-  stateRef.current = { info, cResults, dFields, answers };
+  stateRef.current = { info, cResults, answers };
 
   const liveInitiative = { ...initiative, ...info };
-  const evidenceCtx = { initiative: liveInitiative, results: cResults, sectionD: dFields };
+  const evidenceCtx = { initiative: liveInitiative, results: cResults, sectionD };
   const evidenceHas = (qid) => hasEvidence(qid, evidenceCtx);
 
   // ---- Section C editing (flows into the page-level save) ----
@@ -202,7 +181,6 @@ export default function InitiativePage({ initiative, results, sectionDList, relo
     }
     try {
       await api.updateInitiative(initiative.id, cur.info);
-      await api.saveSectionD(initiative.id, sectionDBody(cur.dFields));
       await api.saveFinalAnswers(initiative.id, pickCAnswers(cur.answers));
       // Create new results / update existing; collect ids for the created ones.
       const idByKey = {};
@@ -379,12 +357,10 @@ export default function InitiativePage({ initiative, results, sectionDList, relo
           evidenceHas={evidenceHas}
         />
 
-        <SectionD d={dFields} setD={setDFields} />
-
         <section>
           <p className="eyebrow">Transfer</p>
           <h2 className="section-title mb-3 mt-1">Export to ERPNext Quality Action Resolution</h2>
-          <ExportCard initiative={liveInitiative} results={linkedResults} sectionD={dFields} />
+          <ExportCard initiative={liveInitiative} results={linkedResults} sectionD={sectionD} />
         </section>
       </div>
     </TightenProvider>

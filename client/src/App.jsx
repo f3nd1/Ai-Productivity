@@ -3,12 +3,14 @@ import { api } from './api.js';
 import Initiatives from './tabs/Initiatives.jsx';
 import InitiativePage from './tabs/InitiativePage.jsx';
 import Overview from './tabs/Overview.jsx';
+import SectionD from './tabs/SectionD.jsx';
 import Settings from './tabs/Settings.jsx';
 import ChangeLog from './tabs/ChangeLog.jsx';
 
 const TABS = [
   { key: 'initiatives', name: 'Initiatives', hint: 'Build and manage evidence', icon: 'spark' },
   { key: 'overview', name: 'Overview', hint: 'Review organisation-wide impact', icon: 'chart' },
+  { key: 'sectiond', name: 'Overall / Section D', hint: 'Close with adoption and readiness', icon: 'people' },
   { key: 'settings', name: 'Settings', hint: 'Configure AI and context', icon: 'settings' },
   { key: 'changelog', name: 'Change Log', hint: 'Track application updates', icon: 'history' },
 ];
@@ -23,6 +25,12 @@ const PAGE_COPY = {
     kicker: 'Performance view',
     title: 'Impact overview',
     description: 'See the combined operational, productivity and financial impact of all initiatives.',
+  },
+  sectiond: {
+    kicker: 'Closing section',
+    title: 'Overall Section D',
+    description:
+      'One set of adoption, work-process and future-readiness answers covering every initiative.',
   },
   settings: {
     kicker: 'Configuration',
@@ -54,6 +62,16 @@ function Icon({ name, className = 'h-5 w-5' }) {
         <path d="M10 19V5" />
         <path d="M16 19v-7" />
         <path d="M22 19H2" />
+      </svg>
+    );
+  }
+  if (name === 'people') {
+    return (
+      <svg {...common}>
+        <path d="M16 19v-1.5a3.5 3.5 0 0 0-3.5-3.5h-5A3.5 3.5 0 0 0 4 17.5V19" />
+        <circle cx="10" cy="8" r="3.2" />
+        <path d="M20 19v-1.5a3.5 3.5 0 0 0-2.6-3.4" />
+        <path d="M15.5 5.2a3.2 3.2 0 0 1 0 5.6" />
       </svg>
     );
   }
@@ -108,20 +126,20 @@ export default function App() {
   const [selectedId, setSelectedId] = useState(null);
   const [initiatives, setInitiatives] = useState([]);
   const [results, setResults] = useState([]);
-  const [sectionDList, setSectionDList] = useState([]);
+  const [sectionD, setSectionD] = useState(null); // ONE overall row for the whole submission
   const [health, setHealth] = useState(null);
   const [loadError, setLoadError] = useState(null);
 
   const reload = useCallback(async () => {
     try {
-      const [inits, res, ds] = await Promise.all([
+      const [inits, res, d] = await Promise.all([
         api.listInitiatives(),
         api.listResults(),
-        api.listSectionD(),
+        api.getSectionD(),
       ]);
       setInitiatives(inits || []);
       setResults(res || []);
-      setSectionDList(ds || []);
+      setSectionD(d || null);
       setLoadError(null);
     } catch (e) {
       setLoadError(e.message);
@@ -229,7 +247,7 @@ export default function App() {
               <InitiativePage
                 initiative={selected}
                 results={results}
-                sectionDList={sectionDList}
+                sectionD={sectionD}
                 reload={reload}
                 onBack={() => setSelectedId(null)}
               />
@@ -237,7 +255,7 @@ export default function App() {
               <Initiatives
                 initiatives={initiatives}
                 results={results}
-                sectionDList={sectionDList}
+                sectionD={sectionD}
                 reload={reload}
                 onSelect={setSelectedId}
               />
@@ -246,13 +264,14 @@ export default function App() {
             <Overview
               initiatives={initiatives}
               results={results}
-              sectionDList={sectionDList}
+              sectionD={sectionD}
               onOpenInitiative={(id) => {
                 setSelectedId(id);
                 setTab('initiatives');
               }}
             />
           )}
+          {tab === 'sectiond' && <SectionD sectionD={sectionD} reload={reload} />}
           {tab === 'settings' && (
             <Settings onSaved={() => api.health().then(setHealth).catch(() => {})} />
           )}

@@ -18,7 +18,7 @@ function Initials({ name }) {
   );
 }
 
-export default function Initiatives({ initiatives, results, sectionDList, reload, onSelect }) {
+export default function Initiatives({ initiatives, results, sectionD, reload, onSelect }) {
   const [creating, setCreating] = useState(false);
   const [err, setErr] = useState(null);
 
@@ -53,11 +53,11 @@ export default function Initiatives({ initiatives, results, sectionDList, reload
     }
   }
 
+  // Section D is one overall answer set now, so dComplete is the same for every
+  // card — it reports the shared closing section, not this initiative's own.
   function details(i) {
-    const resultCount = results.filter((r) => r.initiative_id === i.id).length;
-    const sectionD = sectionDList.find((row) => row.initiative_id === i.id);
     return {
-      resultCount,
+      resultCount: results.filter((r) => r.initiative_id === i.id).length,
       complete: completeness(i, sectionD),
       dComplete: Boolean(sectionD?.d14_narrative?.trim()),
     };

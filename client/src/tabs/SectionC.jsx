@@ -2,7 +2,131 @@ import { computeResult } from '../calc.js';
 import { Q } from '../questions.js';
 import { EVIDENCE_HINT } from '../evidence.js';
 import { useTightenButton, useTightenRegister } from '../tighten.jsx';
-import { Btn, TextInput, WordCountCopy } from '../ui.jsx';
+import { useEffect, useRef, useState } from 'react';
+import { AiRewriteButtons, Btn, PlaceholderNotice, TextInput, WordCountCopy } from '../ui.jsx';
+
+// Common units across the three result types. "Other" reveals a free-text box;
+// whatever the user ends up with is stored in the same `unit` field either way.
+const UNITS = ['%', 'hours', 'minutes', 'days', 'working days', '$', 'count', 'errors', 'calls', 'records'];
+
+// Suggestions only — the metric field accepts anything typed.
+const METRIC_SUGGESTIONS = [
+  'completion time',
+  'error rate',
+  'turnaround time',
+  'accuracy',
+  'response time',
+  'processing time',
+  'resolution time',
+  'throughput',
+  'cost per unit',
+];
+
+const OTHER = '__other__';
+
+function UnitField({ value, onChange }) {
+  // A stored value that isn't a preset is a custom one — including legacy rows
+  // that stored the literal 'other' alongside a separate otherUnit field.
+  const isPreset = UNITS.includes(value);
+  const [custom, setCustom] = useState(Boolean(value) && !isPreset);
+
+  useEffect(() => {
+    if (value && UNITS.includes(value)) setCustom(false);
+  }, [value]);
+
+  return (
+    <div>
+      <label className="block">
+        <span className="field-label">Unit</span>
+        <select
+          className="field-control"
+          value={custom ? OTHER : value || ''}
+          onChange={(e) => {
+            if (e.target.value === OTHER) {
+              setCustom(true);
+              if (UNITS.includes(value)) onChange('');
+              return;
+            }
+            setCustom(false);
+            onChange(e.target.value);
+          }}
+        >
+          <option value="">Select a unit</option>
+          {UNITS.map((u) => (
+            <option key={u} value={u}>{u}</option>
+          ))}
+          <option value={OTHER}>Other</option>
+        </select>
+      </label>
+      {custom && (
+        <TextInput
+          className="mt-2"
+          value={value || ''}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder="Enter a custom unit"
+        />
+      )}
+    </div>
+  );
+}
+
+// Free-typing combobox: suggestions are a convenience, never a constraint —
+// anything typed is kept verbatim, whether or not it matches the list.
+function MetricField({ label, value, onChange, placeholder }) {
+  const [open, setOpen] = useState(false);
+  const boxRef = useRef(null);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const close = (e) => {
+      if (boxRef.current && !boxRef.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, [open]);
+
+  const typed = (value || '').trim().toLowerCase();
+  const matches = METRIC_SUGGESTIONS.filter((s) => !typed || s.includes(typed));
+
+  return (
+    <div className="relative" ref={boxRef}>
+      <label className="block">
+        <span className="field-label">{label}</span>
+        <input
+          className="field-control"
+          value={value || ''}
+          placeholder={placeholder}
+          autoComplete="off"
+          onChange={(e) => {
+            onChange(e.target.value);
+            setOpen(true);
+          }}
+          onFocus={() => setOpen(true)}
+          onKeyDown={(e) => e.key === 'Escape' && setOpen(false)}
+        />
+      </label>
+      {open && matches.length > 0 && (
+        <ul className="absolute z-20 mt-1 max-h-52 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white py-1 shadow-lg">
+          {matches.map((s) => (
+            <li key={s}>
+              <button
+                type="button"
+                className="block w-full px-3.5 py-2 text-left text-sm text-slate-700 hover:bg-indigo-50 hover:text-indigo-700"
+                onMouseDown={(e) => e.preventDefault()} // keep focus so blur-autosave doesn't fire mid-pick
+                onClick={() => {
+                  onChange(s);
+                  setOpen(false);
+                }}
+              >
+                {s}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
 
 // Fixed, always-visible sub-sections. A result's type comes from the group it
 // was added under, so cards no longer carry a type picker.
@@ -49,15 +173,19 @@ function Num({ label, value, onChange, ...rest }) {
 }
 
 function Note({ value, onChange, tightenId }) {
-  const { tighten, busy } = useTightenButton(value, onChange);
+  const { tighten, elaborate, busy, mode, err } = useTightenButton(value, onChange);
   useTightenRegister(tightenId, tightenId, value, onChange); // order = tightenId (100+; sits between B and D)
   return (
-    <label className="block">
-      <div className="flex items-center justify-between">
+    <div>
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="field-label">Qualitative note</span>
-        <Btn variant="ghost" onClick={tighten} disabled={busy || !value?.trim()}>
-          {busy ? 'Tightening…' : 'Tighten with AI'}
-        </Btn>
+        <AiRewriteButtons
+          tighten={tighten}
+          elaborate={elaborate}
+          busy={busy}
+          mode={mode}
+          disabled={!value?.trim()}
+        />
       </div>
       <textarea
         rows={2}
@@ -65,7 +193,9 @@ function Note({ value, onChange, tightenId }) {
         value={value || ''}
         onChange={(e) => onChange(e.target.value)}
       />
-    </label>
+      <PlaceholderNotice text={value} />
+      {err && <p className="mt-1 text-xs text-red-600">{err}</p>}
+    </div>
   );
 }
 
@@ -74,8 +204,13 @@ function TypeFields({ type, f, set, tightenId }) {
   if (type === 'productivity') {
     return (
       <div className="grid gap-3 sm:grid-cols-2">
-        <TextInput label="Metric name" value={f.metric || ''} onChange={(e) => set('metric', e.target.value)} />
-        <TextInput label="Unit" value={f.unit || ''} onChange={(e) => set('unit', e.target.value)} />
+        <MetricField
+          label="Metric name"
+          value={f.metric}
+          onChange={(v) => set('metric', v)}
+          placeholder="e.g. completion time"
+        />
+        <UnitField value={f.unit} onChange={(v) => set('unit', v)} />
         <Num label="Before value" value={f.before} onChange={(v) => set('before', v)} />
         <Num label="After value" value={f.after} onChange={(v) => set('after', v)} />
         <label className="block">
@@ -129,28 +264,17 @@ function TypeFields({ type, f, set, tightenId }) {
   }
 
   // operational
-  const unit = f.unit || '%';
   return (
     <div className="grid gap-3 sm:grid-cols-2">
-      <TextInput label="Metric name" value={f.metric || ''} onChange={(e) => set('metric', e.target.value)} />
-      <label className="block">
-        <span className="field-label">Unit</span>
-        <select
-          className="field-control"
-          value={unit}
-          onChange={(e) => set('unit', e.target.value)}
-        >
-          <option value="%">%</option>
-          <option value="minutes">minutes</option>
-          <option value="count">count</option>
-          <option value="other">other</option>
-        </select>
-      </label>
+      <MetricField
+        label="Metric name"
+        value={f.metric}
+        onChange={(v) => set('metric', v)}
+        placeholder="e.g. resolution time"
+      />
+      <UnitField value={f.unit} onChange={(v) => set('unit', v)} />
       <Num label="Before rate" value={f.before} onChange={(v) => set('before', v)} />
       <Num label="After rate" value={f.after} onChange={(v) => set('after', v)} />
-      {unit === 'other' && (
-        <TextInput label="Custom unit" value={f.otherUnit || ''} onChange={(e) => set('otherUnit', e.target.value)} />
-      )}
       <div className="col-span-2">
         <Note value={f.note} onChange={(v) => set('note', v)} tightenId={tightenId} />
       </div>

@@ -9,7 +9,8 @@ const filled = (v) => v != null && String(v).trim() !== '';
 
 // D14/D15 are trivial arithmetic living inline in SectionD.jsx (not the Section C
 // calculator module); mirrored here exactly. adoption% = trained/total*100,
-// hours/week = hoursPerWeek * staffAffected.
+// hours/week = hoursPerWeek * staffAffected. Section D is one overall row for
+// the whole submission, so these are organisation-wide figures, not per-initiative.
 export function d14Adoption(sd) {
   const t = num(sd?.d14_staff_trained);
   const tot = num(sd?.d14_total_staff);
@@ -22,7 +23,9 @@ export function d15HoursPerWeek(sd) {
 }
 
 // How many of the 9 form questions have usable content: raw text for B/D,
-// a generated answer (final_answers) for C.
+// a generated answer (final_answers) for C. `sd` is the ONE overall Section D,
+// so the last three checks contribute equally to every initiative's score —
+// that's correct, the submission genuinely shares those three answers.
 export function completeness(initiative, sd) {
   const fa = initiative.final_answers || {};
   const checks = [
@@ -39,9 +42,9 @@ export function completeness(initiative, sd) {
   return checks.filter(filled).length; // out of 9
 }
 
-export function computeOverview({ initiatives = [], results = [], sectionDList = [] }) {
-  const sdFor = (id) => sectionDList.find((d) => d.initiative_id === id) || null;
-
+// `sectionD` is the single overall Section D row (or null). Its figures belong
+// to the summary, not to any one initiative's row.
+export function computeOverview({ initiatives = [], results = [], sectionD = null }) {
   const rows = initiatives.map((init) => {
     const rs = results.filter((r) => r.initiative_id === init.id);
     const counts = { productivity: 0, financial: 0, operational: 0 };
@@ -61,7 +64,6 @@ export function computeOverview({ initiatives = [], results = [], sectionDList =
         if (Number.isFinite(out.pct)) pcts.push(out.pct);
       }
     }
-    const sd = sdFor(init.id);
     return {
       id: init.id,
       name: init.name || 'Untitled initiative',
@@ -69,9 +71,7 @@ export function computeOverview({ initiatives = [], results = [], sectionDList =
       counts,
       monthly: hasFinancial ? monthly : null,
       avgProductivityPct: pcts.length ? round1(pcts.reduce((a, b) => a + b, 0) / pcts.length) : null,
-      d14Adoption: d14Adoption(sd),
-      d15Hours: d15HoursPerWeek(sd),
-      completeness: completeness(init, sd),
+      completeness: completeness(init, sectionD),
     };
   });
 
@@ -90,12 +90,6 @@ export function computeOverview({ initiatives = [], results = [], sectionDList =
       if (Number.isFinite(out.pct)) allPcts.push(out.pct);
     }
   }
-  let totalD15Hours = 0;
-  for (const sd of sectionDList) {
-    const h = d15HoursPerWeek(sd);
-    if (h != null) totalD15Hours += h;
-  }
-
   const summary = {
     totalInitiatives: initiatives.length,
     totalResults: results.length,
@@ -103,7 +97,9 @@ export function computeOverview({ initiatives = [], results = [], sectionDList =
     totalMonthly,
     totalAnnual,
     avgProductivityPct: allPcts.length ? round1(allPcts.reduce((a, b) => a + b, 0) / allPcts.length) : null,
-    totalD15Hours,
+    // Organisation-wide, straight off the single Section D row.
+    d14Adoption: d14Adoption(sectionD),
+    totalD15Hours: d15HoursPerWeek(sectionD) ?? 0,
   };
 
   return { summary, rows };
@@ -124,8 +120,6 @@ export function overviewRowsToCsv(rows = []) {
     'Operational Results',
     'Saved Monthly (SGD)',
     'Average Productivity Gain (%)',
-    'D14 Adoption (%)',
-    'D15 Hours Freed Per Week',
     'Completeness (out of 9)',
   ];
 
@@ -140,8 +134,6 @@ export function overviewRowsToCsv(rows = []) {
         row.counts?.operational ?? 0,
         row.monthly,
         row.avgProductivityPct,
-        row.d14Adoption,
-        row.d15Hours,
         row.completeness,
       ]
         .map(csvCell)

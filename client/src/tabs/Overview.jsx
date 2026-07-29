@@ -80,7 +80,7 @@ function downloadCsv(rows, department) {
   URL.revokeObjectURL(url);
 }
 
-export default function Overview({ initiatives, results, sectionDList, onOpenInitiative }) {
+export default function Overview({ initiatives, results, sectionD, onOpenInitiative }) {
   const [selectedDepartment, setSelectedDepartment] = useState('all');
 
   const departmentOptions = useMemo(
@@ -88,8 +88,10 @@ export default function Overview({ initiatives, results, sectionDList, onOpenIni
     [initiatives]
   );
 
+  // Section D is organisation-wide, so it is NOT filtered by department — the
+  // same closing answers apply whichever department view is selected.
   const filteredData = useMemo(() => {
-    if (selectedDepartment === 'all') return { initiatives, results, sectionDList };
+    if (selectedDepartment === 'all') return { initiatives, results, sectionD };
     const filteredInitiatives = initiatives.filter(
       (initiative) => initiative.department?.trim() === selectedDepartment
     );
@@ -97,9 +99,9 @@ export default function Overview({ initiatives, results, sectionDList, onOpenIni
     return {
       initiatives: filteredInitiatives,
       results: results.filter((result) => ids.has(result.initiative_id)),
-      sectionDList: sectionDList.filter((sectionD) => ids.has(sectionD.initiative_id)),
+      sectionD,
     };
-  }, [initiatives, results, sectionDList, selectedDepartment]);
+  }, [initiatives, results, sectionD, selectedDepartment]);
 
   const { summary, rows } = useMemo(
     () => computeOverview(filteredData),
@@ -160,7 +162,12 @@ export default function Overview({ initiatives, results, sectionDList, onOpenIni
         />
         <Stat label="Saved monthly" value={fmtMoney(summary.totalMonthly)} sub={`${fmtMoney(summary.totalAnnual)} annually`} accent="emerald" />
         <Stat label="Productivity gain" value={dash(summary.avgProductivityPct, (v) => `${v}%`)} sub="Average across recorded metrics" accent="amber" />
-        <Stat label="Hours freed" value={summary.totalD15Hours} sub="Per week across Section D" accent="rose" />
+        <Stat
+          label="Hours freed"
+          value={summary.totalD15Hours}
+          sub={`Per week, overall Section D${summary.d14Adoption != null ? ` · ${summary.d14Adoption}% adoption` : ''}`}
+          accent="rose"
+        />
       </div>
 
       <section className="app-card p-5 sm:p-6">
@@ -197,7 +204,7 @@ export default function Overview({ initiatives, results, sectionDList, onOpenIni
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[980px] text-sm">
+            <table className="w-full min-w-[760px] text-sm">
               <thead>
                 <tr className="bg-slate-50/80 text-left text-[11px] uppercase tracking-[0.12em] text-slate-500">
                   <th className="px-5 py-3.5 font-semibold">Initiative</th>
@@ -205,8 +212,6 @@ export default function Overview({ initiatives, results, sectionDList, onOpenIni
                   <th className="px-5 py-3.5 font-semibold">C results</th>
                   <th className="px-5 py-3.5 font-semibold">Saved monthly</th>
                   <th className="px-5 py-3.5 font-semibold">Productivity</th>
-                  <th className="px-5 py-3.5 font-semibold">D14 adoption</th>
-                  <th className="px-5 py-3.5 font-semibold">D15 hours</th>
                   <th className="px-5 py-3.5 font-semibold">Complete</th>
                 </tr>
               </thead>
@@ -229,8 +234,6 @@ export default function Overview({ initiatives, results, sectionDList, onOpenIni
                     <td className="px-5 py-4 text-slate-600">{counts(r.counts)}</td>
                     <td className="px-5 py-4 font-medium text-slate-700">{dash(r.monthly, fmtMoney)}</td>
                     <td className="px-5 py-4 text-slate-600">{dash(r.avgProductivityPct, (v) => `${v}%`)}</td>
-                    <td className="px-5 py-4 text-slate-600">{dash(r.d14Adoption, (v) => `${v}%`)}</td>
-                    <td className="px-5 py-4 text-slate-600">{dash(r.d15Hours)}</td>
                     <td className="px-5 py-4">
                       <div className="flex items-center gap-2">
                         <div className="h-1.5 w-16 overflow-hidden rounded-full bg-slate-100">

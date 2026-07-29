@@ -30,15 +30,15 @@ Three layers, all talking JSON over `/api/*`:
 ### Data model (see `supabase-schema.sql`)
 - `initiatives` — one AI use case: `name`, `department`, B narratives `b8_problem`/`b9_significance`/`b10_solution`, and `final_answers` (jsonb; **only** the generated C11/C12/C13 answers are stored here — B/D raw fields are their own answers).
 - `results` — Section C measurable results, FK to one initiative, `type` in `('productivity','financial','operational')`, type-specific inputs in `fields` (jsonb).
-- `section_d` — **one row per initiative** (was a singleton historically; migrated to per-initiative via `initiative_id`).
+- `section_d` — **one overall singleton row** for the whole submission. (It was briefly per-initiative via `initiative_id`; that column was dropped and the rows discarded — see the last migration block.) Section D is the closing/conclusion page, reached from its own top-level tab, not from an initiative.
 - `app_settings` — singleton row: OpenAI enable toggle, key, analysis/utility model choices, and persistent `org_context`.
 
 The schema file doubles as the migration log: the base `create table`s reflect a fresh install, and each `-- MIGRATION` block at the bottom is a manual, non-destructive `alter table ... add column if not exists` to run **once** in the Supabase SQL editor when upgrading an existing DB. Adding a column to a table generally means adding a migration block here too.
 
 ### The per-initiative page is the core (`tabs/InitiativePage.jsx`)
 Everything about one initiative lives on one page and is owned by this component, which is deliberately the single source of truth so the one page-level **Save** can persist the whole page atomically:
-- It holds `info` (B fields + department), `cResults` (editable working copy of Section C results, seeded once on mount — **not** reseeded on reload, to avoid clobbering edits), `dFields` (Section D), and `answers` (C generated text).
-- `SectionC`, `SectionD` are **controlled** children (no own Save buttons); Section C keeps only a per-card **Delete** (a distinct immediate action).
+- It holds `info` (B fields + department), `cResults` (editable working copy of Section C results, seeded once on mount — **not** reseeded on reload, to avoid clobbering edits), and `answers` (C generated text). Section D is **not** here — it's a separate top-level page owning its own state and Save.
+- `SectionC` is a **controlled** child (no own Save button); it keeps only a per-card **Delete** (a distinct immediate action). Section C is split into three fixed sub-sections (C11 productivity / C12 financial / C13 operational), each with its own add button — a result's type comes from the sub-section it was added under, so cards have no type picker.
 - `persist()` writes everything in one action; a debounced **blur autosave** calls it as a safety net, guarded so it never runs mid-generation.
 - **B8 is required**: `persist()` aborts entirely if `b8_problem` is empty (explicit Save shows an error, autosave silently skips).
 
@@ -47,7 +47,8 @@ Everything about one initiative lives on one page and is owned by this component
 
 ### AI + settings flow
 - OpenAI is called **server-side only**, model `gpt-4o-mini`. Endpoints: `POST /api/draft/:questionId` and `POST /api/tighten`. The effective key/models/enable-toggle/org-context are resolved **per request** from `app_settings` (merged with the `OPENAI_API_KEY` env fallback via `config.js` `mergeConfig`); the stored key is never returned to the browser (only a masked form).
-- Only **C11/C12/C13** have a "Generate" step (they synthesise multiple Section C results). B8–B10 and D14–D16 raw text *is* their answer — those get a Tighten button + word count instead. Generation is **evidence-gated** (`evidence.js` `hasEvidence`): a question can't be generated with no underlying data. Generated C answers are persisted immediately (independent of the B8-gated whole-page Save) so they survive a reload.
+- Only **C11/C12/C13** have a "Generate" step (they synthesise multiple Section C results). B8–B10 and D14–D16 raw text *is* their answer — those get **Tighten** + **Elaborate** buttons and a word count instead. Both share `POST /api/tighten`, switched by a `mode` field (`tighten` | `elaborate`); Elaborate expands a fragment but must never add a fact, emitting `[add: ...]` placeholders for anything the form wants that the input doesn't state. The client surfaces those placeholders as a highlighted checklist under the field (`PlaceholderNotice` in `ui.jsx`) — a textarea can't style its own contents.
+- The Export block has its own **Generate with AI** step (`POST /api/export-draft`) that rewrites the four Quality Action Resolution text fields from this initiative's B+C evidence plus the overall Section D. It returns labelled prose which `parseExportDraft` (in `export.js`, tested) splits into the four fields; the plain-concatenation build is what shows until then, and every field stays editable after. Generation is **evidence-gated** (`evidence.js` `hasEvidence`): a question can't be generated with no underlying data. Generated C answers are persisted immediately (independent of the B8-gated whole-page Save) so they survive a reload.
 
 ### Graceful degradation (important; keep it working)
 The server never hard-crashes on missing config. With no Supabase env, CRUD endpoints return **503**; with no OpenAI key/disabled, `/api/draft` and `/api/tighten` return a clearly-labelled **stub** echoing the evidence. `App.jsx` shows a degraded-mode banner from `/api/health`. Any change to endpoints must preserve this.

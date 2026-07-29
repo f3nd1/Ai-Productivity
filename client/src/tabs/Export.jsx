@@ -1,10 +1,13 @@
 import { useMemo, useState } from 'react';
+import { api } from '../api.js';
 import {
   resultsFor,
   buildFinding,
   buildRootCause,
   buildActionTaken,
   buildGeneralNotes,
+  buildExportEvidence,
+  parseExportDraft,
   financialManDayRateDefault,
   hasFinancialResult,
   productivityBeforeAfter,
@@ -79,6 +82,9 @@ export function ExportCard({ initiative, results, sectionD }) {
   const [beforeTime, setBeforeTime] = useState(ba.before);
   const [afterTime, setAfterTime] = useState(ba.after);
   const [cyclePerMonth, setCyclePerMonth] = useState('');
+  const [genBusy, setGenBusy] = useState(false);
+  const [genErr, setGenErr] = useState(null);
+  const [genDone, setGenDone] = useState(false);
   const manualNote = 'Not tracked elsewhere in the app — enter manually before copying.';
   const timeNote = ba.autofilled
     ? 'Auto-filled from the Productivity result — adjust if the unit isn’t man-days.'
@@ -90,6 +96,32 @@ export function ExportCard({ initiative, results, sectionD }) {
       showNumbers ? { beforeTime, afterTime, manDayRate, cyclePerMonth } : null
     );
 
+  // AI-written versions of the four text fields, from this initiative's B+C
+  // evidence plus the shared overall Section D. A starting draft, not a locked
+  // final — every field stays editable afterwards. Fields the model omits keep
+  // their existing plain-concatenation text rather than being blanked.
+  async function generate() {
+    setGenBusy(true);
+    setGenErr(null);
+    try {
+      const { text } = await api.exportDraft(buildExportEvidence(initiative, linked, sectionD));
+      const draft = parseExportDraft(text);
+      if (draft.finding) setFinding(draft.finding);
+      if (draft.rootCause) setRootCause(draft.rootCause);
+      if (draft.actionTaken) setActionTaken(draft.actionTaken);
+      if (draft.generalNotes) setGeneralNotes(draft.generalNotes);
+      if (!draft.finding && !draft.rootCause && !draft.actionTaken && !draft.generalNotes) {
+        setGenErr('The AI reply could not be split into the four fields. Nothing was changed.');
+      } else {
+        setGenDone(true);
+      }
+    } catch (e) {
+      setGenErr(e.message);
+    } finally {
+      setGenBusy(false);
+    }
+  }
+
   return (
     <div className="app-card p-5 sm:p-6">
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-4">
@@ -97,8 +129,20 @@ export function ExportCard({ initiative, results, sectionD }) {
           <h3 className="font-semibold text-slate-950">{initiative.name || 'Untitled initiative'}</h3>
           <p className="mt-1 text-xs font-medium text-slate-500">{initiative.department || 'Department not set'}</p>
         </div>
-        <CopyBtn getText={copyAll} label="Copy all as text" />
+        <div className="flex flex-wrap items-center gap-2">
+          <Btn onClick={generate} disabled={genBusy}>
+            {genBusy ? 'Generating…' : genDone ? 'Regenerate with AI' : 'Generate with AI'}
+          </Btn>
+          <CopyBtn getText={copyAll} label="Copy all as text" />
+        </div>
       </div>
+
+      <p className="mb-4 text-xs leading-5 text-slate-500">
+        {genDone
+          ? 'AI draft written from this initiative’s B and C evidence plus the overall Section D. Edit any field before copying.'
+          : 'Showing the assembled text from your entered data. Use Generate with AI to rewrite the four fields below as prose — every field stays editable.'}
+      </p>
+      {genErr && <p className="mb-4 rounded-xl bg-red-50 px-3 py-2 text-sm text-red-600">{genErr}</p>}
 
       <div className="space-y-4">
         <TextField label="Finding" value={finding} onChange={setFinding} />

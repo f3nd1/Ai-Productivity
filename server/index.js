@@ -157,37 +157,23 @@ app.delete('/api/results/:id', async (req, res) => {
   res.json({ ok: true });
 });
 
-// ---------- section_d (one row per initiative) ----------
-// Bulk list — used only by the Initiatives list view to build each card's
-// status summary (e.g. "Section D complete") without one request per card.
+// ---------- section_d (ONE overall row, not per initiative) ----------
+// Section D is the organisation-wide closing section: one set of D14/D15/D16
+// covering adoption, process change and future readiness across every
+// initiative. The table holds a single row; the app never creates a second.
 app.get('/api/section-d', async (_req, res) => {
   if (!supabase) return needDb(res);
-  const { data, error } = await supabase.from('section_d').select('*');
-  if (error) return res.status(500).json({ error: error.message });
-  res.json(data);
-});
-
-app.get('/api/initiatives/:id/section-d', async (req, res) => {
-  if (!supabase) return needDb(res);
-  const { data, error } = await supabase
-    .from('section_d')
-    .select('*')
-    .eq('initiative_id', req.params.id)
-    .maybeSingle();
+  const { data, error } = await supabase.from('section_d').select('*').limit(1).maybeSingle();
   if (error) return res.status(500).json({ error: error.message });
   res.json(data || null);
 });
 
-app.put('/api/initiatives/:id/section-d', async (req, res) => {
+app.put('/api/section-d', async (req, res) => {
   if (!supabase) return needDb(res);
-  const initiativeId = req.params.id;
-  const { data: existing } = await supabase
-    .from('section_d')
-    .select('id')
-    .eq('initiative_id', initiativeId)
-    .maybeSingle();
-  const row = { ...req.body, initiative_id: initiativeId };
-  if (existing) row.id = existing.id;
+  const { data: existing } = await supabase.from('section_d').select('id').limit(1).maybeSingle();
+  // Reuse the existing row's id so the upsert updates it instead of inserting a
+  // second one — that's what keeps this table a singleton.
+  const row = existing ? { ...req.body, id: existing.id } : { ...req.body };
   const { data, error } = await supabase.from('section_d').upsert(row).select().single();
   if (error) return res.status(500).json({ error: error.message });
   res.json(data);
@@ -278,22 +264,86 @@ const TIGHTEN_SYSTEM =
   'Never add facts, numbers, or claims beyond what the input already states. ' +
   'British spelling. Return only the rewritten text.';
 
+// Elaborate: the opposite direction to Tighten — it grows a fragment into prose.
+// The hard rule is that growing the text must never grow the CLAIMS: anything
+// the form asks for but the input doesn't state comes back as a visible
+// "[add: ...]" placeholder, never as a plausible-sounding invented figure.
+const ELABORATE_SYSTEM =
+  'You expand a short, fragmentary note into fuller prose for a Singapore government (IMDA) award ' +
+  'nomination form. Restate and naturally expand only what is explicitly stated — do not invent facts, ' +
+  'numbers, tools, or outcomes. Where the form\'s guidance calls for a specific detail (a number, ' +
+  'timeframe, or concrete example) that the input doesn\'t provide, insert a placeholder in square ' +
+  'brackets naming exactly what\'s missing, e.g. \'[add: X]\', rather than guessing a value. ' +
+  'Plain, professional register. Output only the expanded text, no preamble. Hard limit: 300 words.';
+
+// Both modes take one field's text and return one field's text, so they share an
+// endpoint; only the system prompt and model tier differ. Elaborate uses the
+// analysis model because not inventing facts is the harder instruction to follow.
+const REWRITE_MODES = {
+  tighten: { system: TIGHTEN_SYSTEM, model: (cfg) => cfg.utilityModel },
+  elaborate: { system: ELABORATE_SYSTEM, model: (cfg) => cfg.analysisModel },
+};
+
 app.post('/api/tighten', async (req, res) => {
   const text = (req.body && req.body.text) || '';
-  if (!text.trim()) return res.status(400).json({ error: 'No text to tighten.' });
+  const modeKey = REWRITE_MODES[req.body?.mode] ? req.body.mode : 'tighten';
+  const mode = REWRITE_MODES[modeKey];
+  if (!text.trim()) return res.status(400).json({ error: `No text to ${modeKey}.` });
   const cfg = await effectiveConfig();
   if (!cfg.enabled || !cfg.key) return res.json({ text, stub: true });
   try {
     const client = new OpenAI({ apiKey: cfg.key });
     const completion = await client.chat.completions.create({
-      model: cfg.utilityModel, // lighter task → utility model
+      model: mode.model(cfg),
       temperature: 0.3,
       messages: [
-        { role: 'system', content: withOrgContext(TIGHTEN_SYSTEM, cfg.orgContext) },
+        { role: 'system', content: withOrgContext(mode.system, cfg.orgContext) },
         { role: 'user', content: text },
       ],
     });
     res.json({ text: completion.choices[0]?.message?.content?.trim() || text });
+  } catch (e) {
+    res.status(502).json({ error: `OpenAI request failed: ${e.message}` });
+  }
+});
+
+// ---------- Export block: AI-written Quality Action Resolution fields ----------
+const EXPORT_SYSTEM =
+  'You write the Root Cause & Resolution intake fields for a Singapore government (IMDA) Quality Action ' +
+  'Resolution record, based on one specific AI initiative\'s evidence. Write ONLY from the evidence given — ' +
+  'never invent facts, numbers, or outcomes not present in the input. ' +
+  'Finding: combine the stated business problem and its significance into one paragraph. ' +
+  'Root Cause & Resolution: combine the stated solution approach with the measurable results\' qualitative notes. ' +
+  'Action Taken: draw from the shared organisation-wide adoption/training/process-change content (Section D), ' +
+  'written as it applies to this initiative. ' +
+  'General Notes: any remaining figures or details not captured elsewhere. ' +
+  'Plain, professional register. Output each of the four fields separately and clearly labeled.';
+
+app.post('/api/export-draft', async (req, res) => {
+  const evidence = (req.body && req.body.evidence) || '';
+  if (!evidence.trim()) return res.status(400).json({ error: 'No evidence to draft from.' });
+  const cfg = await effectiveConfig();
+  if (!cfg.enabled || !cfg.key) {
+    return res.json({ text: stubDraft(evidence, offReason(cfg)), stub: true });
+  }
+  try {
+    const client = new OpenAI({ apiKey: cfg.key });
+    const completion = await client.chat.completions.create({
+      model: cfg.analysisModel,
+      temperature: 0.4,
+      messages: [
+        { role: 'system', content: withOrgContext(EXPORT_SYSTEM, cfg.orgContext) },
+        {
+          role: 'user',
+          content:
+            'Evidence for this initiative:\n\n' +
+            `${evidence}\n\n` +
+            'Label the four fields exactly as "Finding:", "Root Cause & Resolution:", ' +
+            '"Action Taken:" and "General Notes:", each on its own line.',
+        },
+      ],
+    });
+    res.json({ text: completion.choices[0]?.message?.content?.trim() || '' });
   } catch (e) {
     res.status(502).json({ error: `OpenAI request failed: ${e.message}` });
   }

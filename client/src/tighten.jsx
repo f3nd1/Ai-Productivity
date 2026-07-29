@@ -34,25 +34,33 @@ export function useTightenRegister(id, order, value, setValue) {
   }, [ctx, id]);
 }
 
-// The per-field "Tighten with AI" button behaviour, shared by every narrative
-// field (B8-B10, Section C notes, D14-D16).
+// The per-field "Tighten with AI" / "Elaborate with AI" button behaviour, shared
+// by every narrative field (B8-B10, Section C notes, D14-D16). Both directions
+// rewrite one field in place, so they share one busy/error pair; `mode` says
+// which one is currently running so only that button shows its progress label.
 export function useTightenButton(value, setValue) {
-  const [busy, setBusy] = useState(false);
+  const [mode, setMode] = useState(null); // null | 'tighten' | 'elaborate'
   const [err, setErr] = useState(null);
-  async function tighten() {
-    if (!value?.trim()) return;
-    setBusy(true);
+  async function run(which) {
+    if (!value?.trim() || mode) return;
+    setMode(which);
     setErr(null);
     try {
-      const { text } = await api.tighten(value);
+      const { text } = which === 'elaborate' ? await api.elaborate(value) : await api.tighten(value);
       setValue(text);
     } catch (e) {
       setErr(e.message);
     } finally {
-      setBusy(false);
+      setMode(null);
     }
   }
-  return { tighten, busy, err };
+  return {
+    tighten: () => run('tighten'),
+    elaborate: () => run('elaborate'),
+    busy: mode !== null,
+    mode,
+    err,
+  };
 }
 
 // Run tighten across every registered field, in `order`, skipping blanks.

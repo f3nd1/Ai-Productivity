@@ -34,6 +34,7 @@ create table if not exists app_settings (
   org_context text
 );
 
+-- Singleton: ONE overall Section D for the whole submission (not per initiative).
 create table if not exists section_d (
   id uuid primary key default gen_random_uuid(),
   d14_narrative text,
@@ -87,3 +88,30 @@ alter table initiatives add column if not exists final_answers jsonb not null de
 -- valid and will show "Department not set" until updated in the app.
 -- ============================================================
 alter table initiatives add column if not exists department text;
+
+-- ============================================================
+-- MIGRATION — run manually, once, in the Supabase SQL editor.
+-- Section D reverts from one row PER INITIATIVE back to ONE OVERALL row.
+-- Section D is now the closing/conclusion section of the whole submission
+-- (organisation-wide adoption, process change and future readiness), reached
+-- from its own top-level tab rather than from any single initiative's page.
+--
+-- *** THIS MIGRATION DESTROYS DATA — ON PURPOSE ***
+-- Unlike every other migration in this file, this one is NOT non-destructive.
+-- `delete from section_d` discards EVERY existing per-initiative D14/D15/D16
+-- row: all D14 narratives, staff-trained / total-staff / training-weeks
+-- figures, D15 narratives, hours-freed / staff-affected figures, and D16
+-- narratives, for every initiative. Nothing is merged or carried forward.
+--
+-- This is the confirmed, deliberate decision: start the overall Section D from
+-- one blank row rather than guess how several per-initiative answers should be
+-- combined into a single organisation-wide one. Anything worth keeping must be
+-- copied out of the app BEFORE running this.
+--
+-- Dropping initiative_id (rather than keeping it nullable and only ever using
+-- the IS NULL row) is what makes the table a real singleton again: no dead
+-- column, and no way for a stale scoped row to shadow the overall one.
+-- ============================================================
+delete from section_d;
+drop index if exists section_d_initiative_id_key;
+alter table section_d drop column if exists initiative_id;

@@ -1,7 +1,27 @@
+import { useEffect, useRef, useState } from 'react';
+import { api } from '../api.js';
 import { Q } from '../questions.js';
 import { Btn, NarrativeField } from '../ui.jsx';
 
 const num = (v) => (v === '' || v == null ? NaN : Number(v));
+const numOrNull = (v) => {
+  if (v === '' || v === null || v === undefined) return null;
+  const n = Number(v);
+  return Number.isNaN(n) ? null : n;
+};
+
+function body(d) {
+  return {
+    d14_narrative: d.d14_narrative || null,
+    d14_staff_trained: numOrNull(d.d14_staff_trained),
+    d14_total_staff: numOrNull(d.d14_total_staff),
+    d14_training_weeks: numOrNull(d.d14_training_weeks),
+    d15_narrative: d.d15_narrative || null,
+    d15_hours_per_week: numOrNull(d.d15_hours_per_week),
+    d15_staff_affected: numOrNull(d.d15_staff_affected),
+    d16_narrative: d.d16_narrative || null,
+  };
+}
 
 function CalcInputs({ children }) {
   return <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{children}</div>;
@@ -30,10 +50,59 @@ function Suggested({ sentence, onInsert }) {
   );
 }
 
-// Controlled by the page: `d` holds the Section D fields, `setD` updates them.
-// No own Save button — the page-level Save persists everything together.
-export default function SectionD({ d, setD }) {
+// Section D is the closing section of the whole submission: ONE overall set of
+// D14/D15/D16 covering adoption, process change and future readiness across
+// every initiative, not scoped to any single one. It owns its own state and
+// Save because it is a top-level page rather than part of the initiative page.
+export default function SectionD({ sectionD, reload }) {
+  const [d, setD] = useState(sectionD || {});
+  const [saving, setSaving] = useState(false);
+  const [saveMsg, setSaveMsg] = useState(null);
+  const [err, setErr] = useState(null);
+  const autosaveTimer = useRef(null);
+  const savingRef = useRef(false);
+  const stateRef = useRef();
+  stateRef.current = d;
+
+  // Seed once from the loaded row — not on every reload, which would clobber
+  // in-progress edits (the same rule the initiative page follows).
+  const seeded = useRef(Boolean(sectionD));
+  useEffect(() => {
+    if (!seeded.current && sectionD) {
+      seeded.current = true;
+      setD(sectionD);
+    }
+  }, [sectionD]);
+
   const set = (k) => (v) => setD((s) => ({ ...s, [k]: v }));
+
+  async function persist(explicit) {
+    if (savingRef.current) return;
+    savingRef.current = true;
+    if (explicit) {
+      setSaving(true);
+      setErr(null);
+    }
+    try {
+      await api.saveSectionD(body(stateRef.current));
+      await reload();
+      if (explicit) {
+        setSaveMsg('Saved');
+        setTimeout(() => setSaveMsg(null), 2500);
+      }
+    } catch (e) {
+      setErr(e.message);
+    } finally {
+      savingRef.current = false;
+      if (explicit) setSaving(false);
+    }
+  }
+
+  function scheduleAutosave() {
+    clearTimeout(autosaveTimer.current);
+    autosaveTimer.current = setTimeout(() => persist(false), 800);
+  }
+  useEffect(() => () => clearTimeout(autosaveTimer.current), []);
 
   // D14 calc
   const trained = num(d.d14_staff_trained);
@@ -65,7 +134,22 @@ export default function SectionD({ d, setD }) {
     });
 
   return (
-    <div className="space-y-6">
+    // onBlur bubbles (focusout) — any field losing focus schedules an autosave.
+    <div className="space-y-6" onBlur={scheduleAutosave}>
+      <div className="app-card sticky top-3 z-10 flex flex-wrap items-center justify-between gap-3 p-3.5 backdrop-blur-xl">
+        <p className="text-sm text-slate-500">
+          One overall answer for the whole submission, shared by every initiative.
+        </p>
+        <div className="flex flex-wrap items-center gap-3">
+          {saveMsg && <span className="text-sm font-medium text-green-600">{saveMsg}</span>}
+          <Btn variant="primary" onClick={() => persist(true)} disabled={saving}>
+            {saving ? 'Saving…' : 'Save'}
+          </Btn>
+        </div>
+      </div>
+
+      {err && <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-600">{err}</p>}
+
       <div>
         <p className="eyebrow">People and readiness</p>
         <h2 className="section-title mt-1">Section D, adoption and future readiness</h2>
@@ -73,7 +157,7 @@ export default function SectionD({ d, setD }) {
 
       {/* D14 */}
       <section className="app-card p-5 sm:p-6">
-        <NarrativeField q={Q.d14} value={d.d14_narrative} onChange={set('d14_narrative')} tightenId={200} tightenOrder={200} />
+        <NarrativeField q={Q.d14} value={d.d14_narrative} onChange={set('d14_narrative')} />
         <CalcInputs>
           <NumIn label="Staff trained" value={d.d14_staff_trained} onChange={set('d14_staff_trained')} />
           <NumIn label="Total staff" value={d.d14_total_staff} onChange={set('d14_total_staff')} />
@@ -87,7 +171,7 @@ export default function SectionD({ d, setD }) {
 
       {/* D15 */}
       <section className="app-card p-5 sm:p-6">
-        <NarrativeField q={Q.d15} value={d.d15_narrative} onChange={set('d15_narrative')} tightenId={201} tightenOrder={201} />
+        <NarrativeField q={Q.d15} value={d.d15_narrative} onChange={set('d15_narrative')} />
         <CalcInputs>
           <NumIn label="Hours freed per week" value={d.d15_hours_per_week} onChange={set('d15_hours_per_week')} />
           <NumIn label="Staff affected" value={d.d15_staff_affected} onChange={set('d15_staff_affected')} />
@@ -103,7 +187,7 @@ export default function SectionD({ d, setD }) {
 
       {/* D16 — narrative only */}
       <section className="app-card p-5 sm:p-6">
-        <NarrativeField q={Q.d16} value={d.d16_narrative} onChange={set('d16_narrative')} tightenId={202} tightenOrder={202} />
+        <NarrativeField q={Q.d16} value={d.d16_narrative} onChange={set('d16_narrative')} />
       </section>
     </div>
   );

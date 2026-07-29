@@ -36,6 +36,55 @@ export function WordCountCopy({ text }) {
   );
 }
 
+// Placeholders Elaborate leaves behind for detail it refused to invent, e.g.
+// "[add: how many hours per week this saved]". A textarea can't render styled
+// spans inside itself, so they're surfaced as a highlighted checklist under the
+// field — which also reads as a to-do list of what's still missing.
+const PLACEHOLDER_RE = /\[add:[^\]]*\]/gi;
+
+export function findPlaceholders(text) {
+  return (text || '').match(PLACEHOLDER_RE) || [];
+}
+
+export function PlaceholderNotice({ text }) {
+  const found = findPlaceholders(text);
+  if (found.length === 0) return null;
+  return (
+    <div className="mt-2 rounded-xl border border-amber-200 bg-amber-50/80 px-3 py-2.5">
+      <p className="text-xs font-semibold text-amber-800">
+        {found.length} detail{found.length === 1 ? '' : 's'} still needed before submission
+      </p>
+      <ul className="mt-1.5 space-y-1">
+        {found.map((p, idx) => (
+          <li key={idx}>
+            <span className="rounded bg-amber-200/70 px-1.5 py-0.5 font-mono text-[11px] font-semibold text-amber-900">
+              {p}
+            </span>
+          </li>
+        ))}
+      </ul>
+      <p className="mt-1.5 text-[11px] leading-4 text-amber-700">
+        AI left these blank rather than invent a figure. Replace each one with the real detail, or delete it.
+      </p>
+    </div>
+  );
+}
+
+// The Tighten / Elaborate pair. Every narrative field gets both: Tighten
+// condenses, Elaborate expands a thin fragment without adding facts.
+export function AiRewriteButtons({ tighten, elaborate, busy, mode, disabled }) {
+  return (
+    <div className="flex items-center gap-1">
+      <Btn variant="ghost" onClick={tighten} disabled={busy || disabled}>
+        {mode === 'tighten' ? 'Tightening…' : 'Tighten with AI'}
+      </Btn>
+      <Btn variant="ghost" onClick={elaborate} disabled={busy || disabled}>
+        {mode === 'elaborate' ? 'Elaborating…' : 'Elaborate with AI'}
+      </Btn>
+    </div>
+  );
+}
+
 export function RequiredBadge() {
   return (
     <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700">
@@ -79,20 +128,24 @@ export function TextInput({ label, className = '', ...props }) {
 // "Tighten with AI" button. When tightenId is given it also registers with the
 // page-level tighten registry so "Tighten all" can drive it.
 export function NarrativeField({ q, value, onChange, tighten = true, tightenId = null, tightenOrder = 0 }) {
-  const { tighten: onTighten, busy, err } = useTightenButton(value, onChange);
+  const { tighten: onTighten, elaborate: onElaborate, busy, mode, err } = useTightenButton(value, onChange);
   useTightenRegister(tightenId, tightenOrder, value, onChange);
 
   return (
     <div>
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <label className="field-label">
           {q.label}
           {q.required && <RequiredBadge />}
         </label>
         {tighten && (
-          <Btn variant="ghost" onClick={onTighten} disabled={busy || !value?.trim()}>
-            {busy ? 'Tightening…' : 'Tighten with AI'}
-          </Btn>
+          <AiRewriteButtons
+            tighten={onTighten}
+            elaborate={onElaborate}
+            busy={busy}
+            mode={mode}
+            disabled={!value?.trim()}
+          />
         )}
       </div>
       <p className="mt-1 text-xs italic leading-5 text-slate-500">{q.prompt}</p>
@@ -103,6 +156,7 @@ export function NarrativeField({ q, value, onChange, tighten = true, tightenId =
         onChange={(e) => onChange(e.target.value)}
       />
       <WordCountCopy text={value} />
+      <PlaceholderNotice text={value} />
       <Guidance>What to include: {q.include}</Guidance>
       {err && <p className="mt-1 text-xs text-red-600">{err}</p>}
     </div>
