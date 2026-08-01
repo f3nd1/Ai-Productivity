@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { api } from '../api.js';
 import {
   resultsFor,
@@ -68,7 +68,10 @@ function NumField({ label, value, onChange, note }) {
   );
 }
 
-export function ExportCard({ initiative, results, sectionD }) {
+// `onFieldsChange` reports the four text fields up so the print document shows
+// what's actually on screen — including AI-generated and hand-edited text —
+// rather than re-deriving the plain-concatenation defaults.
+export function ExportCard({ initiative, results, sectionD, onFieldsChange }) {
   const linked = useMemo(() => resultsFor(initiative.id, results), [initiative.id, results]);
   const showNumbers = useMemo(() => hasFinancialResult(linked), [linked]);
 
@@ -89,6 +92,10 @@ export function ExportCard({ initiative, results, sectionD }) {
   const timeNote = ba.autofilled
     ? 'Auto-filled from the Productivity result — adjust if the unit isn’t man-days.'
     : manualNote;
+
+  useEffect(() => {
+    onFieldsChange?.({ finding, rootCause, actionTaken, generalNotes });
+  }, [finding, rootCause, actionTaken, generalNotes, onFieldsChange]);
 
   const copyAll = () =>
     formatCopyAll(

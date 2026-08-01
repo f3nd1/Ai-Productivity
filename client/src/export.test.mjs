@@ -13,6 +13,7 @@ import {
   copyToClipboard,
   buildExportEvidence,
   parseExportDraft,
+  printResultRows,
 } from './export.js';
 
 const initiative = {
@@ -164,6 +165,34 @@ assert.equal(partial.finding, 'Only this one.');
 assert.equal(partial.rootCause, '');
 assert.equal(partial.actionTaken, '');
 assert.equal(parseExportDraft('').finding, '');
+
+// --- printResultRows: Section C tables for the print document ---
+const prodTable = printResultRows('productivity', [
+  { fields: { metric: 'process speed', before: 100, after: 130, direction: 'higher', unit: 'minutes' } },
+]);
+assert.deepEqual(prodTable.columns, ['Metric', 'Before', 'After', 'Change']);
+assert.deepEqual(prodTable.rows[0], ['process speed', '100minutes', '130minutes', '30%']);
+
+// Financial results have no before/after, so they get their own columns.
+const finTable = printResultRows('financial', [
+  { fields: { timeBased: true, hoursPerWeek: 10, rate: 30, costCategory: 'Labour cost' } },
+  { fields: { timeBased: false, directMonthly: 1000, costCategory: 'Software licensing' } },
+]);
+assert.deepEqual(finTable.columns, ['Cost category', 'Basis', 'Monthly saving', 'Annual saving']);
+assert.deepEqual(finTable.rows[0], ['Labour cost', '10 hours/week at $30/hour', '$1,299', '$15,588']);
+assert.deepEqual(finTable.rows[1], ['Software licensing', 'Direct monthly saving', '$1,000', '$12,000']);
+
+// Legacy 'other' + otherUnit rows still resolve their unit.
+assert.equal(
+  printResultRows('operational', [{ fields: { metric: 'complaints', before: 20, after: 5, unit: 'other', otherUnit: ' cases' } }])
+    .rows[0][1],
+  '20 cases'
+);
+// Missing values render as an em dash, never "undefined".
+const sparse = printResultRows('productivity', [{ fields: {} }]);
+assert.deepEqual(sparse.rows[0], ['—', '—', '—', '—']);
+assert.deepEqual(printResultRows('financial', [{ fields: {} }]).rows[0], ['—', '— hours/week at —/hour', '—', '—']);
+assert.deepEqual(printResultRows('productivity', []).rows, []);
 
 // clipboard mock
 let captured = null;

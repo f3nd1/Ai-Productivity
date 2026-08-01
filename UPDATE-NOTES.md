@@ -36,6 +36,27 @@ The field provides common UCC department suggestions but remains editable, so a 
 A full Vite production build was not completed because dependency installation timed out in the verification environment.
 
 
+## August 2026, Print / Export PDF
+
+No migration and no new endpoint — this is client-only.
+
+- "Print / Export PDF" in the initiative page's top bar opens the browser print
+  dialog, where "Save as PDF" produces the document. No PDF library was added.
+- The output is a purpose-built document, not a screenshot of the form: cover
+  block, Section B (8-10), Section C (11-13) with each generated answer followed
+  by a real table of the results behind it, Section D (14-16) marked as shared,
+  and the four ERPNext export fields. Not-applicable C sections print
+  "Not applicable to this initiative" instead of an empty table.
+- Serif body text, single column, A4 with 20/18/22mm margins, rules instead of
+  boxes, and page-break-inside avoided per numbered section so a heading can't
+  strand at a page end. No buttons, inputs, nav or "What to include" hints.
+- The export fields print exactly what's on screen, including AI-generated and
+  hand-edited text, rather than re-derived defaults.
+
+Known limitation: browsers can't number pages from CSS via `window.print()`, so
+the repeating footer carries "United Ceres College — Confidential" only. Enable
+the print dialog's own headers/footers option if you want page numbers.
+
 ## July 2026, completeness fix + initiative management
 
 ### Required Supabase migration (additive, safe)

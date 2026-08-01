@@ -7,6 +7,7 @@ import { TightenProvider, runTightenAll } from '../tighten.jsx';
 import { Btn, TextInput, NarrativeField } from '../ui.jsx';
 import SectionC from './SectionC.jsx';
 import { ExportCard } from './Export.jsx';
+import PrintView from './PrintView.jsx';
 
 export const DEPARTMENTS = [
   'Academic',
@@ -128,6 +129,11 @@ export default function InitiativePage({ initiative, results, sectionD, reload, 
   );
   const [answers, setAnswers] = useState({});
   const [notApplicable, setNotApplicable] = useState(initiative.not_applicable || {});
+  // Mirrors the Export block's four text fields so the print document renders
+  // exactly what's on screen. Mounted only while printing, so the live UI is
+  // untouched the rest of the time.
+  const [exportFields, setExportFields] = useState({});
+  const [printing, setPrinting] = useState(false);
 
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState(null);
@@ -226,6 +232,19 @@ export default function InitiativePage({ initiative, results, sectionD, reload, 
     }, 800);
   }
   useEffect(() => () => clearTimeout(autosaveTimer.current), []);
+
+  // Print once the document has actually been laid out, then unmount it when
+  // the dialog closes (afterprint also fires on cancel, so it can't get stuck).
+  useEffect(() => {
+    if (!printing) return undefined;
+    const done = () => setPrinting(false);
+    window.addEventListener('afterprint', done);
+    const frame = requestAnimationFrame(() => window.print());
+    return () => {
+      window.removeEventListener('afterprint', done);
+      cancelAnimationFrame(frame);
+    };
+  }, [printing]);
 
   // Persist C answers immediately (independent of the B8-gated whole-page save),
   // so a reload right after generating keeps them. Takes an explicit answers
@@ -330,6 +349,9 @@ export default function InitiativePage({ initiative, results, sectionD, reload, 
             <Btn onClick={tightenAll} disabled={busy}>
               Tighten all
             </Btn>
+            <Btn onClick={() => setPrinting(true)} disabled={busy || printing}>
+              {printing ? 'Preparing…' : 'Print / Export PDF'}
+            </Btn>
             <Btn variant="primary" onClick={() => persist(true)} disabled={busy}>
               {saving ? 'Saving…' : 'Save'}
             </Btn>
@@ -375,8 +397,24 @@ export default function InitiativePage({ initiative, results, sectionD, reload, 
         <section>
           <p className="eyebrow">Transfer</p>
           <h2 className="section-title mb-3 mt-1">Export to ERPNext Quality Action Resolution</h2>
-          <ExportCard initiative={liveInitiative} results={linkedResults} sectionD={sectionD} />
+          <ExportCard
+            initiative={liveInitiative}
+            results={linkedResults}
+            sectionD={sectionD}
+            onFieldsChange={setExportFields}
+          />
         </section>
+
+        {printing && (
+          <PrintView
+            initiative={liveInitiative}
+            results={cResults}
+            answers={answers}
+            notApplicable={notApplicable}
+            sectionD={sectionD}
+            exportFields={exportFields}
+          />
+        )}
       </div>
     </TightenProvider>
   );

@@ -150,6 +150,46 @@ export function copyToClipboard(text) {
   return navigator.clipboard.writeText(text);
 }
 
+// ---------- Print document ----------
+
+const printMoney = (n) =>
+  Number.isFinite(n) ? '$' + (Math.round(n * 100) / 100).toLocaleString('en-GB', { maximumFractionDigits: 2 }) : '—';
+const orDash = (v) => (v === '' || v === null || v === undefined ? '—' : String(v));
+// Legacy rows stored the literal 'other' plus a separate otherUnit; newer rows
+// store the resolved text directly in `unit`.
+const resolvedUnit = (f) => (f.unit === 'other' ? f.otherUnit || '' : f.unit || '');
+
+// Section C results as a real table for the print document. Financial results
+// have no before/after pair, so they get their own columns rather than being
+// forced into a shape that would misrepresent them.
+export function printResultRows(type, results) {
+  if (type === 'financial') {
+    return {
+      columns: ['Cost category', 'Basis', 'Monthly saving', 'Annual saving'],
+      rows: results.map((r) => {
+        const f = r.fields || {};
+        const out = computeResult('financial', f);
+        const basis =
+          f.timeBased === false
+            ? 'Direct monthly saving'
+            : `${orDash(f.hoursPerWeek)} hours/week at ${f.rate == null || f.rate === '' ? '—' : printMoney(Number(f.rate))}/hour`;
+        return [orDash(f.costCategory), basis, printMoney(out.monthly), printMoney(out.annual)];
+      }),
+    };
+  }
+  // Productivity and operational both measure a metric moving before → after.
+  return {
+    columns: ['Metric', 'Before', 'After', 'Change'],
+    rows: results.map((r) => {
+      const f = r.fields || {};
+      const out = computeResult(type, f);
+      const unit = resolvedUnit(f);
+      const withUnit = (v) => (v === '' || v == null ? '—' : `${v}${unit}`);
+      return [orDash(f.metric), withUnit(f.before), withUnit(f.after), out.metrics[0]?.value || '—'];
+    }),
+  };
+}
+
 // ---------- AI "Generate with AI" for the export block ----------
 
 // Everything the model is allowed to draw on for one initiative: its B fields,

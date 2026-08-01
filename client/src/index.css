@@ -70,3 +70,190 @@
     @apply text-sm leading-6 text-slate-500;
   }
 }
+
+/* ============================================================
+   Print document (PrintView.jsx)
+   A dedicated document render, not the live form under a print stylesheet.
+   Deliberately hand-written CSS rather than Tailwind utilities: Tailwind's
+   reset and colour scales are tuned for screens, and this needs print units
+   (pt), @page margins and a repeating footer.
+   ============================================================ */
+.print-doc {
+  display: none;
+}
+
+@media print {
+  /* Hide the entire app; show only the document. */
+  #root {
+    display: none !important;
+  }
+
+  html,
+  body {
+    background: #fff !important;
+    background-image: none !important;
+    margin: 0;
+    padding: 0;
+  }
+
+  @page {
+    size: A4;
+    margin: 20mm 18mm 22mm;
+  }
+
+  .print-doc {
+    display: block;
+    color: #14181f;
+    /* A serif body face — this is a document, not a UI. */
+    font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, "Times New Roman", serif;
+    font-size: 11pt;
+    line-height: 1.65;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* --- Cover block --- */
+  .print-cover {
+    border-bottom: 1.5pt solid #14181f;
+    padding-bottom: 10pt;
+    margin-bottom: 22pt;
+  }
+  .print-org {
+    font-size: 12pt;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    margin: 0;
+  }
+  .print-kicker {
+    font-size: 9.5pt;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: #5a6472;
+    margin: 2pt 0 0;
+  }
+  .print-title {
+    font-size: 22pt;
+    line-height: 1.2;
+    font-weight: 700;
+    margin: 16pt 0 0;
+  }
+  .print-meta {
+    display: flex;
+    gap: 28pt;
+    margin: 12pt 0 0;
+  }
+  .print-meta dt {
+    font-size: 8pt;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #5a6472;
+    margin: 0;
+  }
+  .print-meta dd {
+    font-size: 10.5pt;
+    margin: 1pt 0 0;
+  }
+
+  /* --- Section headings --- */
+  .print-section-title {
+    font-size: 13pt;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    margin: 26pt 0 0;
+    padding-bottom: 5pt;
+    border-bottom: 0.5pt solid #b9c0ca; /* a rule, not a box */
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+
+  .print-section {
+    margin-top: 15pt;
+    /* Keep a heading with its content rather than stranding it on a page end. */
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  .print-heading {
+    font-size: 11.5pt;
+    font-weight: 700;
+    margin: 0 0 5pt;
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+  .print-number {
+    color: #5a6472;
+  }
+
+  .print-body {
+    margin: 0 0 8pt;
+    text-align: justify;
+    hyphens: auto;
+    orphans: 3;
+    widows: 3;
+  }
+  .print-empty {
+    margin: 0 0 8pt;
+    color: #7b8492;
+    font-style: italic;
+  }
+  .print-shared {
+    margin: 6pt 0 0;
+    font-size: 9.5pt;
+    font-style: italic;
+    color: #5a6472;
+  }
+
+  /* --- Result tables --- */
+  .print-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 9pt 0 0;
+    font-size: 9.5pt;
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif; /* tabular data reads better sans */
+  }
+  .print-table th {
+    text-align: left;
+    font-size: 8pt;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #5a6472;
+    font-weight: 600;
+    padding: 0 8pt 4pt 0;
+    border-bottom: 0.75pt solid #14181f;
+  }
+  .print-table td {
+    padding: 4.5pt 8pt 4.5pt 0;
+    border-bottom: 0.5pt solid #dde1e7;
+    vertical-align: top;
+  }
+  .print-table th:last-child,
+  .print-table td:last-child {
+    padding-right: 0;
+  }
+
+  .print-notes {
+    margin-top: 7pt;
+  }
+  .print-note {
+    margin: 0 0 3pt;
+    font-size: 9.5pt;
+    color: #3d4653;
+    padding-left: 9pt;
+    border-left: 1.5pt solid #dde1e7;
+  }
+
+  /* Fixed so the browser repeats it on every page. Browser page numbers come
+     from the print dialog's own headers/footers option. */
+  .print-footer {
+    position: fixed;
+    bottom: -14mm;
+    left: 0;
+    right: 0;
+    font-size: 8pt;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #7b8492;
+    text-align: center;
+    border-top: 0.5pt solid #dde1e7;
+    padding-top: 4pt;
+  }
+}
