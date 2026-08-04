@@ -3,6 +3,7 @@ import { api } from './api.js';
 import Initiatives from './tabs/Initiatives.jsx';
 import InitiativePage from './tabs/InitiativePage.jsx';
 import Overview from './tabs/Overview.jsx';
+import Figures from './tabs/Figures.jsx';
 import SectionD from './tabs/SectionD.jsx';
 import Settings from './tabs/Settings.jsx';
 import ChangeLog from './tabs/ChangeLog.jsx';
@@ -10,6 +11,7 @@ import ChangeLog from './tabs/ChangeLog.jsx';
 const TABS = [
   { key: 'initiatives', name: 'Initiatives', hint: 'Build and manage evidence', icon: 'spark' },
   { key: 'overview', name: 'Overview', hint: 'Review organisation-wide impact', icon: 'chart' },
+  { key: 'figures', name: 'Figures Table', hint: 'Compare every result side by side', icon: 'table' },
   { key: 'sectiond', name: 'Overall / Section D', hint: 'Close with adoption and readiness', icon: 'people' },
   { key: 'settings', name: 'Settings', hint: 'Configure AI and context', icon: 'settings' },
   { key: 'changelog', name: 'Change Log', hint: 'Track application updates', icon: 'history' },
@@ -25,6 +27,11 @@ const PAGE_COPY = {
     kicker: 'Performance view',
     title: 'Impact overview',
     description: 'See the combined operational, productivity and financial impact of all initiatives.',
+  },
+  figures: {
+    kicker: 'Raw figures',
+    title: 'Figures table',
+    description: 'Every Section C result in one comparable table, ready to export.',
   },
   sectiond: {
     kicker: 'Closing section',
@@ -62,6 +69,14 @@ function Icon({ name, className = 'h-5 w-5' }) {
         <path d="M10 19V5" />
         <path d="M16 19v-7" />
         <path d="M22 19H2" />
+      </svg>
+    );
+  }
+  if (name === 'table') {
+    return (
+      <svg {...common}>
+        <rect x="3.5" y="4.5" width="17" height="15" rx="2" />
+        <path d="M3.5 9.5h17M3.5 14.5h17M9.5 9.5V19.5M15 9.5V19.5" />
       </svg>
     );
   }
@@ -271,6 +286,7 @@ export default function App() {
               }}
             />
           )}
+          {tab === 'figures' && <Figures initiatives={initiatives} results={results} />}
           {tab === 'sectiond' && <SectionD sectionD={sectionD} reload={reload} />}
           {tab === 'settings' && (
             <Settings onSaved={() => api.health().then(setHealth).catch(() => {})} />

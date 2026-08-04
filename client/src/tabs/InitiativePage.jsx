@@ -368,9 +368,16 @@ export default function InitiativePage({ initiative, results, sectionD, reload, 
                 Department not set
               </span>
             )}
-            <h1 className="mt-1 text-2xl font-semibold tracking-tight text-slate-950 sm:text-3xl">
-              {info.name || 'Untitled initiative'}
-            </h1>
+            <div className="mt-1 flex flex-wrap items-center gap-2.5">
+              {initiative.initiative_code && (
+                <span className="rounded-lg bg-slate-100 px-2 py-1 font-mono text-sm font-semibold text-slate-500">
+                  {initiative.initiative_code}
+                </span>
+              )}
+              <h1 className="text-2xl font-semibold tracking-tight text-slate-950 sm:text-3xl">
+                {info.name || 'Untitled initiative'}
+              </h1>
+            </div>
           </div>
           <span className="rounded-full bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-700 ring-1 ring-indigo-100">
             9 evidence questions

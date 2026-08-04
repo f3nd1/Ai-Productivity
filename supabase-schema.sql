@@ -9,6 +9,9 @@ create table if not exists initiatives (
   updated_at timestamptz,
   name text,
   department text,
+  -- Short read-only code (INIT-01, INIT-02, ...). The sequence and default that
+  -- populate it are set up in the migration block at the end of this file.
+  initiative_code text,
   b8_problem text,
   b9_significance text,
   b10_solution text,
@@ -135,3 +138,62 @@ alter table section_d drop column if exists initiative_id;
 -- ============================================================
 alter table initiatives add column if not exists not_applicable jsonb not null default '{}'::jsonb;
 alter table initiatives add column if not exists updated_at timestamptz;
+
+-- ============================================================
+-- MIGRATION — run manually, once, in the Supabase SQL editor.
+-- Short read-only initiative codes: INIT-01, INIT-02, ... The code is generated
+-- by a Postgres SEQUENCE used as the column default, so it is allocated by the
+-- database on insert. That is what makes it safe under concurrent creation —
+-- the server never reads a max and adds one, so two simultaneous inserts can't
+-- race to the same code.
+--
+-- The pad width is greatest(2, length(n)) rather than a plain lpad(n, 2, '0'):
+-- lpad TRUNCATES when the value is longer than the target width, so lpad('100',
+-- 2, '0') returns '10' — the 100th initiative would collide with INIT-10. This
+-- form pads to 2 digits and then simply gets wider, so 99 -> INIT-99 and
+-- 100 -> INIT-100.
+--
+-- Non-destructive: adds a column, backfills existing rows in creation order,
+-- then starts the sequence after the highest code already assigned.
+-- Run the whole block together — the backfill must complete before setval.
+-- ============================================================
+alter table initiatives add column if not exists initiative_code text;
+
+create sequence if not exists initiative_code_seq;
+
+-- Backfill existing rows in creation order, oldest = INIT-01. Only touches rows
+-- that don't already have a code, so re-running this block is harmless.
+with numbered as (
+  select id, row_number() over (order by created_at, id) as n
+  from initiatives
+  where initiative_code is null
+)
+update initiatives i
+set initiative_code = 'INIT-' || lpad(numbered.n::text, greatest(2, length(numbered.n::text)), '0')
+from numbered
+where i.id = numbered.id;
+
+-- Point the sequence at the next code to hand out, so it continues the run
+-- instead of colliding with an existing code. The `false` third argument means
+-- "not yet called", so nextval() returns exactly this value — which is why an
+-- empty table correctly starts at INIT-01 rather than skipping to INIT-02.
+select setval(
+  'initiative_code_seq',
+  (select coalesce(max(regexp_replace(initiative_code, '\D', '', 'g')::int), 0) + 1
+   from initiatives
+   where initiative_code ~ '\d'),
+  false
+);
+
+-- A function, not an inline expression: the padding width depends on the value,
+-- and a column default can't hold a subquery, so writing it inline would have to
+-- call nextval() twice and burn two sequence values per insert.
+create or replace function next_initiative_code() returns text as $$
+  select 'INIT-' || lpad(n::text, greatest(2, length(n::text)), '0')
+  from (select nextval('initiative_code_seq') as n) s;
+$$ language sql volatile;
+
+alter table initiatives alter column initiative_code set default next_initiative_code();
+
+-- Enforces the guarantee rather than trusting it.
+create unique index if not exists initiatives_initiative_code_key on initiatives (initiative_code);

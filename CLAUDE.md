@@ -43,6 +43,9 @@ Everything about one initiative lives on one page and is owned by this component
 - **B8 is required**: `persist()` aborts entirely if `b8_problem` is empty (explicit Save shows an error, autosave silently skips).
 
 ### Calculators are pure and shared — never duplicate them
+### Figures Table (`tabs/Figures.jsx` + `figures.js`)
+One row per Section C result across every initiative, grouped into Productivity / Financial / Operational column blocks. All row building, sorting, filtering and CSV live in pure `figures.js` (tested); the JSX only renders. Every number comes from `computeResult` — when a figure isn't already exposed, add an additive raw field to `calc.js` (as `roi`, `paybackMonths`, `pointChange` were) rather than re-deriving it here. CSV building is shared with Overview via `csv.js`.
+
 ### Completeness scoring is evidence-based, not text-based (`overview.js`)
 `completeness(initiative, results, sectionD)` returns `{ score, questions, thin, stale, hasAnyC, resultCount }`. The rules exist because text alone once scored a point, letting an initiative with **zero** Section C results read 9/9 "submission ready":
 - **C11/C12/C13** need a linked result of that type, or an explicit `not_applicable` declaration. Stored generated text with no results behind it scores `'stale'` — never a point.

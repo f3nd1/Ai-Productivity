@@ -59,12 +59,17 @@ export function financial(f) {
 
   const cost = num(f.oneTimeCost);
   let roi = null;
+  let payback = null;
   if (Number.isFinite(cost) && cost > 0) {
     roi = round1(((annual - cost) / cost) * 100);
-    const payback = round1(monthly !== 0 ? cost / monthly : NaN);
+    payback = round1(monthly !== 0 ? cost / monthly : NaN);
     out.metrics.push({ label: 'ROI (first year)', value: `${roi}%` });
     out.metrics.push({ label: 'Payback', value: Number.isFinite(payback) ? `${payback} months` : '—' });
   }
+  // Raw numbers for aggregation (Figures Table); identical values to the
+  // formatted metrics above — exposed, not recomputed.
+  out.roi = roi;
+  out.paybackMonths = Number.isFinite(payback) ? payback : null;
   // Prefer ROI sentence if a cost was entered, else the saving sentence.
   const cat = (f.costCategory || 'labour costs').trim();
   if (roi !== null) out.sentence = `Achieved ROI of ${roi}% in first year`;
@@ -83,6 +88,7 @@ export function operational(f) {
   const delta = after - before;
 
   if (unitSel === '%') {
+    out.pointChange = round1(delta); // raw number for the Figures Table
     out.metrics.push({ label: 'Point change', value: `${delta >= 0 ? '+' : ''}${round1(delta)} points` });
     out.sentence = `${metric} improved from ${before}% to ${after}%`;
     return out;
@@ -93,6 +99,7 @@ export function operational(f) {
     return out;
   }
   const pct = round1((delta / before) * 100);
+  out.pct = pct; // raw number for the Figures Table
   const u = unit || '';
   out.metrics.push({ label: 'Change', value: `${pct}%` });
   let sentence = `${metric} improved from ${before}${u} to ${after}${u}, a ${pct}% change`;

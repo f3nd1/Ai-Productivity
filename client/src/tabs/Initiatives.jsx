@@ -271,9 +271,16 @@ export default function Initiatives({ initiatives, results, sectionD, reload, on
                 <div className="min-w-0 flex-1">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <h3 className="truncate font-semibold text-slate-950 transition group-hover:text-indigo-700">
-                        {i.name || 'Untitled initiative'}
-                      </h3>
+                      <div className="flex items-center gap-2">
+                        {i.initiative_code && (
+                          <span className="shrink-0 rounded-md bg-slate-100 px-1.5 py-0.5 font-mono text-[11px] font-semibold text-slate-500">
+                            {i.initiative_code}
+                          </span>
+                        )}
+                        <h3 className="truncate font-semibold text-slate-950 transition group-hover:text-indigo-700">
+                          {i.name || 'Untitled initiative'}
+                        </h3>
+                      </div>
                       <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500">
                         <span
                           className={`rounded-full px-2 py-1 font-medium ${

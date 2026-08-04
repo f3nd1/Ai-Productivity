@@ -2,6 +2,7 @@
 // can verify the sums. Reuses the exact Section C calculators (computeResult) so
 // Overview figures can't drift from what each initiative page shows.
 import { computeResult } from './calc.js';
+import { toCsv } from './csv.js';
 
 const round1 = (n) => Math.round(n * 10) / 10;
 const num = (v) => (v === '' || v == null ? NaN : Number(v));
@@ -191,11 +192,6 @@ export function sortOverviewRows(rows, key, dir = 'asc') {
   });
 }
 
-function csvCell(value) {
-  const text = value == null ? '' : String(value);
-  return `"${text.replaceAll('"', '""')}"`;
-}
-
 export function overviewRowsToCsv(rows = []) {
   const headers = [
     'Initiative',
@@ -208,22 +204,17 @@ export function overviewRowsToCsv(rows = []) {
     'Completeness (out of 9)',
   ];
 
-  const lines = [headers.map(csvCell).join(',')];
-  for (const row of rows) {
-    lines.push(
-      [
-        row.name,
-        row.department || 'Not set',
-        row.counts?.productivity ?? 0,
-        row.counts?.financial ?? 0,
-        row.counts?.operational ?? 0,
-        row.monthly,
-        row.avgProductivityPct,
-        row.completeness,
-      ]
-        .map(csvCell)
-        .join(',')
-    );
-  }
-  return lines.join('\r\n');
+  return toCsv(
+    headers,
+    rows.map((row) => [
+      row.name,
+      row.department || 'Not set',
+      row.counts?.productivity ?? 0,
+      row.counts?.financial ?? 0,
+      row.counts?.operational ?? 0,
+      row.monthly,
+      row.avgProductivityPct,
+      row.completeness,
+    ])
+  );
 }

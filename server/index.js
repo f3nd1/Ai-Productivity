@@ -58,6 +58,9 @@ app.post('/api/initiatives', async (req, res) => {
   if (!supabase) return needDb(res);
   // No B8 check here: the client creates the initiative from a name prompt and
   // opens its page, where B8 is required before that section can be saved.
+  // initiative_code is deliberately NOT accepted from the client and never
+  // inserted: the column's Postgres default pulls from a sequence, so the code
+  // is allocated by the database and stays unique and sequential.
   const { name, department, b8_problem, b9_significance, b10_solution, not_applicable } = req.body;
   const { data, error } = await supabase
     .from('initiatives')
