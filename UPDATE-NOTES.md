@@ -36,6 +36,31 @@ The field provides common UCC department suggestions but remains editable, so a 
 A full Vite production build was not completed because dependency installation timed out in the verification environment.
 
 
+## August 2026, Elaborate uses the form's own guidance
+
+No migration — prompt and wiring only.
+
+- **Elaborate now knows which field it's working on.** It receives that
+  question's "What to include" text from the form, so expanding B8 aims at the
+  operational challenge, B9 at measurable cost, and B10 at the AI solution.
+- **The form's example figures can't leak into your answer.** That guidance is
+  full of illustrations like "Lost $5,000 monthly due to overstocking"; the
+  prompt now explicitly forbids copying those figures, names or wording. If your
+  note has no figure of that kind, none appears.
+- **B10 draws on Section C.** Elaborating B10 gets this initiative's recorded
+  results, so it can describe what the solution actually achieved instead of
+  only rewording the sentence you typed. Quick Fill's B10 rule now also asks it
+  to name the AI tool or type (ChatGPT, Gemini, Claude, a chatbot, predictive
+  analytics, and so on) when your note mentions one — and not to guess when it
+  doesn't.
+- **Quick Fill suggests three initiative names, not one.** They're offered as
+  clickable chips above the name box, deliberately different from each other
+  (one naming the tool, one the process, one the outcome). Pick one or type your
+  own. Duplicates, blanks and over-long titles are filtered out.
+
+Tighten is unchanged and deliberately receives none of this — it only rewords
+what's already there, so guidance could only tempt it to add something.
+
 ## August 2026, Export is per-initiative only
 
 No migration — export logic only.

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../api.js';
 import { Q } from '../questions.js';
 import { resultsFor } from '../export.js';
-import { C_ORDER, hasEvidence, assembleEvidence, pickCAnswers } from '../evidence.js';
+import { C_ORDER, hasEvidence, assembleEvidence, assembleAllResults, pickCAnswers } from '../evidence.js';
 import { TightenProvider, runTightenAll } from '../tighten.jsx';
 import { Btn, TextInput, NarrativeField } from '../ui.jsx';
 import SectionC from './SectionC.jsx';
@@ -76,8 +76,10 @@ function DepartmentField({ value, onChange }) {
   );
 }
 
-// Initiative name + B8/B9/B10, controlled by the page.
-function InitiativeInfo({ info, setInfo }) {
+// Initiative name + B8/B9/B10, controlled by the page. `resultsContext` is this
+// initiative's Section C evidence, given to B10 only — B10 asks what the AI
+// solution did, which is what those results record.
+function InitiativeInfo({ info, setInfo, resultsContext }) {
   const set = (k) => (v) => setInfo((s) => ({ ...s, [k]: v }));
   return (
     <section className="app-card space-y-5 p-5 sm:p-6">
@@ -105,7 +107,14 @@ function InitiativeInfo({ info, setInfo }) {
       </div>
       <NarrativeField q={Q.b8} value={info.b8_problem} onChange={set('b8_problem')} tightenId={1} tightenOrder={1} />
       <NarrativeField q={Q.b9} value={info.b9_significance} onChange={set('b9_significance')} tightenId={2} tightenOrder={2} />
-      <NarrativeField q={Q.b10} value={info.b10_solution} onChange={set('b10_solution')} tightenId={3} tightenOrder={3} />
+      <NarrativeField
+        q={Q.b10}
+        value={info.b10_solution}
+        onChange={set('b10_solution')}
+        tightenId={3}
+        tightenOrder={3}
+        context={resultsContext}
+      />
     </section>
   );
 }
@@ -162,6 +171,8 @@ export default function InitiativePage({ initiative, results, sectionD, reload, 
   const liveInitiative = { ...initiative, ...info };
   const evidenceCtx = { initiative: liveInitiative, results: cResults, sectionD };
   const evidenceHas = (qid) => hasEvidence(qid, evidenceCtx);
+  // Section C evidence, so elaborating B10 can name what was actually done.
+  const resultsContext = useMemo(() => assembleAllResults(evidenceCtx), [cResults, info]);
 
   // ---- Section C editing (flows into the page-level save) ----
   const changeResult = (idx, next) => setCResults((list) => list.map((r, i) => (i === idx ? next : r)));
@@ -415,7 +426,7 @@ export default function InitiativePage({ initiative, results, sectionD, reload, 
           </span>
         </div>
 
-        <InitiativeInfo info={info} setInfo={setInfo} />
+        <InitiativeInfo info={info} setInfo={setInfo} resultsContext={resultsContext} />
 
         <SectionC
           results={cResults}

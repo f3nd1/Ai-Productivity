@@ -78,9 +78,11 @@ export function normalizeQuickFill(raw) {
     .filter(isUsable);
 
   return {
-    // A title, not prose: collapse any newlines and keep it short. Placeholders
-    // are stripped — "[add: ...]" belongs in a narrative field, not in a name.
-    name: textOrNull(stripPlaceholders(text(src.name).replace(/\s+/g, ' ')).slice(0, 80)),
+    // Several title options to choose from. Titles, not prose: newlines
+    // collapse, placeholders are stripped, over-long ones are capped, and
+    // duplicates and blanks are dropped so the review never offers the same
+    // suggestion twice or an empty chip.
+    names: normalizeNames(src.names ?? src.name),
     b8: textOrNull(src.b8),
     b9: textOrNull(src.b9),
     b10: textOrNull(src.b10),
@@ -89,6 +91,25 @@ export function normalizeQuickFill(raw) {
 }
 
 const stripPlaceholders = (s) => s.replace(/\[add:[^\]]*\]/gi, '').replace(/\s{2,}/g, ' ').trim();
+
+const MAX_NAMES = 4;
+const NAME_MAX_LEN = 80;
+
+// Accepts a list, or a single string from an older reply shape.
+export function normalizeNames(raw) {
+  const list = Array.isArray(raw) ? raw : [raw];
+  const seen = new Set();
+  const out = [];
+  for (const item of list) {
+    const title = stripPlaceholders(text(item).replace(/\s+/g, ' ')).slice(0, NAME_MAX_LEN).trim();
+    const key = title.toLowerCase();
+    if (!title || seen.has(key)) continue;
+    seen.add(key);
+    out.push(title);
+    if (out.length === MAX_NAMES) break;
+  }
+  return out;
+}
 
 // Editing a value in the review makes it the user's number, not the model's
 // estimate, so the flag is cleared. Only ever clears — reviewing can't promote

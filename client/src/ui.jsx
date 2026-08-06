@@ -129,8 +129,14 @@ export function TextInput({ label, className = '', ...props }) {
 // Narrative textarea with label, optional required badge, guidance text, and a
 // "Tighten with AI" button. When tightenId is given it also registers with the
 // page-level tighten registry so "Tighten all" can drive it.
-export function NarrativeField({ q, value, onChange, tighten = true, tightenId = null, tightenOrder = 0 }) {
-  const { tighten: onTighten, elaborate: onElaborate, busy, mode, err } = useTightenButton(value, onChange);
+// `context` is optional related evidence Elaborate may draw on (B10 gets this
+// initiative's Section C results, since those record what the solution did).
+export function NarrativeField({ q, value, onChange, tighten = true, tightenId = null, tightenOrder = 0, context = '' }) {
+  const { tighten: onTighten, elaborate: onElaborate, busy, mode, err } = useTightenButton(value, onChange, {
+    label: q.label,
+    guidance: q.include,
+    context,
+  });
   useTightenRegister(tightenId, tightenOrder, value, onChange);
 
   return (

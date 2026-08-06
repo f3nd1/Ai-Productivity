@@ -142,7 +142,9 @@ export default function QuickFill({ info, onApply, onClose }) {
       const raw = await api.quickFill(notes);
       const clean = normalizeQuickFill(raw);
       setReview({
-        name: clean.name || '',
+        // Pre-select the first suggestion; the rest are one click away.
+        name: clean.names[0] || '',
+        nameOptions: clean.names,
         b8: clean.b8 || '',
         b9: clean.b9 || '',
         b10: clean.b10 || '',
@@ -234,9 +236,36 @@ export default function QuickFill({ info, onApply, onClose }) {
                   onChange={(e) => setReview((s) => ({ ...s, name: e.target.value }))}
                   placeholder="e.g. Claude for Quality Action drafting"
                 />
-                {!review.name.trim() && (
+                {review.nameOptions.length > 1 && (
+                  <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                    <span className="text-xs text-slate-400">Suggestions:</span>
+                    {review.nameOptions.map((option) => {
+                      const active = option === review.name.trim();
+                      return (
+                        <button
+                          key={option}
+                          type="button"
+                          onClick={() => setReview((s) => ({ ...s, name: option }))}
+                          className={`rounded-full px-2.5 py-1 text-xs font-medium ring-1 transition ${
+                            active
+                              ? 'bg-indigo-50 text-indigo-700 ring-indigo-200'
+                              : 'bg-white text-slate-600 ring-slate-200 hover:bg-slate-50 hover:text-slate-900'
+                          }`}
+                        >
+                          {option}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+                {review.nameOptions.length === 0 && !review.name.trim() && (
                   <p className="mt-1 text-xs text-slate-400">
                     Left blank — the notes didn’t make clear what to call this initiative.
+                  </p>
+                )}
+                {review.nameOptions.length > 0 && (
+                  <p className="mt-1.5 text-xs text-slate-400">
+                    Pick one or type your own — none of these are fixed.
                   </p>
                 )}
               </div>

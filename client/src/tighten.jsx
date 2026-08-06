@@ -38,7 +38,10 @@ export function useTightenRegister(id, order, value, setValue) {
 // by every narrative field (B8-B10, Section C notes, D14-D16). Both directions
 // rewrite one field in place, so they share one busy/error pair; `mode` says
 // which one is currently running so only that button shows its progress label.
-export function useTightenButton(value, setValue) {
+// `opts` (optional) carries per-field context for Elaborate: `label` and
+// `guidance` from the form question, and `context` for related evidence.
+// Tighten ignores it — it only rewords what's already there.
+export function useTightenButton(value, setValue, opts = {}) {
   const [mode, setMode] = useState(null); // null | 'tighten' | 'elaborate'
   const [err, setErr] = useState(null);
   async function run(which) {
@@ -46,7 +49,7 @@ export function useTightenButton(value, setValue) {
     setMode(which);
     setErr(null);
     try {
-      const { text } = which === 'elaborate' ? await api.elaborate(value) : await api.tighten(value);
+      const { text } = which === 'elaborate' ? await api.elaborate(value, opts) : await api.tighten(value);
       setValue(text);
     } catch (e) {
       setErr(e.message);

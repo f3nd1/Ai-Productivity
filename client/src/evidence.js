@@ -33,6 +33,15 @@ export function hasEvidence(qid, { initiative, results, sectionD }) {
   return false;
 }
 
+// Every Section C result as evidence text. B10 asks what the AI solution did and
+// how well it worked, which is exactly what the Section C results record — so
+// elaborating B10 draws on them rather than on B10's own sentence alone.
+export function assembleAllResults(ctx) {
+  return C_ORDER.map((qid) => assembleEvidence(qid, ctx))
+    .filter(Boolean)
+    .join('\n\n');
+}
+
 export const EVIDENCE_HINT = {
   b8: 'Add the B8 narrative first.',
   b9: 'Add the B9 narrative first.',

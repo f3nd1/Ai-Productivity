@@ -116,7 +116,7 @@ assert.equal(junk.results[0].type, 'productivity', 'an unknown type falls back r
 assert.equal(junk.results[0].before, 5, 'numeric strings coerce');
 assert.equal(junk.results[1].metricOrCategory, 'resolution rate');
 // Totally malformed input must not throw.
-assert.deepEqual(normalizeQuickFill(null), { name: null, b8: null, b9: null, b10: null, results: [] });
+assert.deepEqual(normalizeQuickFill(null), { names: [], b8: null, b9: null, b10: null, results: [] });
 assert.deepEqual(normalizeQuickFill({ results: 'nope' }).results, []);
 assert.deepEqual(normalizeQuickFill('a string').results, []);
 
@@ -179,17 +179,25 @@ assert.equal(applied.b9_significance, 'replaced');
 assert.equal(applied.b10_solution, 'new solution', 'trimmed on the way in');
 assert.equal(applyInfoFields({}, { name: '  AI triage  ' }).name, 'AI triage', 'name is applied and trimmed');
 
-// --- The name is a title, not prose ---
-assert.equal(normalizeQuickFill({ name: '  AI admissions triage  ' }).name, 'AI admissions triage');
-assert.equal(normalizeQuickFill({ name: 'Line one\nline two' }).name, 'Line one line two', 'newlines collapse');
-assert.equal(
-  normalizeQuickFill({ name: 'AI triage [add: which department]' }).name,
-  'AI triage',
-  'placeholders are stripped from a title — they belong in narrative fields'
+// --- Names are a list of title options, not prose ---
+const named = normalizeQuickFill({
+  names: ['  AI admissions triage  ', 'Line one\nline two', 'AI triage [add: which department]'],
+});
+assert.deepEqual(named.names, ['AI admissions triage', 'Line one line two', 'AI triage'],
+  'trimmed, newlines collapsed, placeholders stripped');
+// Blanks, duplicates and placeholder-only titles never reach the review as chips.
+assert.deepEqual(
+  normalizeQuickFill({ names: ['Alpha', 'alpha', '  ', '[add: the name]', null, 42, 'Beta'] }).names,
+  ['Alpha', 'Beta'],
+  'duplicates (case-insensitive), blanks and junk are dropped'
 );
-assert.equal(normalizeQuickFill({ name: '[add: the initiative name]' }).name, null, 'a title that is only a placeholder is no title');
-assert.equal(normalizeQuickFill({ name: 'x'.repeat(200) }).name.length, 80, 'over-long titles are capped');
-assert.equal(normalizeQuickFill({}).name, null);
-assert.equal(normalizeQuickFill({ name: 42 }).name, null);
+assert.equal(normalizeQuickFill({ names: ['x'.repeat(200)] }).names[0].length, 80, 'over-long titles are capped');
+assert.deepEqual(normalizeQuickFill({}).names, []);
+// A bare string is the older single-name shape, so it becomes a one-item list.
+assert.deepEqual(normalizeQuickFill({ names: 'Solo title' }).names, ['Solo title']);
+// At most four suggestions, however many the model returns.
+assert.equal(normalizeQuickFill({ names: ['a', 'b', 'c', 'd', 'e', 'f'] }).names.length, 4);
+// An older single-string reply shape still works.
+assert.deepEqual(normalizeQuickFill({ name: 'Solo title' }).names, ['Solo title']);
 
 console.log('quickfill.test.mjs: all assertions passed');

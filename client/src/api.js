@@ -50,7 +50,10 @@ export const api = {
 
   draft: (qid, evidence) => req('POST', `/api/draft/${qid}`, { evidence }),
   tighten: (text) => req('POST', '/api/tighten', { text }),
-  elaborate: (text) => req('POST', '/api/tighten', { text, mode: 'elaborate' }),
+  // `guidance` is the form's own "What to include" text for this field and
+  // `context` is related evidence already recorded (Section C results for B10).
+  elaborate: (text, opts = {}) =>
+    req('POST', '/api/tighten', { text, mode: 'elaborate', ...opts }),
   exportDraft: (evidence) => req('POST', '/api/export-draft', { evidence }),
   quickFill: (text) => req('POST', '/api/quick-fill', { text }),
   health: () => req('GET', '/api/health'),

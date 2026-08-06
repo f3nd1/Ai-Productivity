@@ -305,6 +305,32 @@ const REWRITE_MODES = {
   elaborate: { system: ELABORATE_SYSTEM, model: (cfg) => cfg.analysisModel },
 };
 
+// The form's own "What to include" guidance, sent by the client from
+// questions.js so there's one copy of that text in the codebase. It exists to
+// steer WHAT the answer covers — but it's full of illustrative figures
+// ("Lost $5,000 monthly due to overstocking"), and a model handed those will
+// happily repeat them as if they were this college's numbers. Hence the ban.
+function elaborateUserMessage({ text, label, guidance, context }) {
+  const parts = [];
+  if (label) parts.push(`This field is: ${label}`);
+  if (guidance) {
+    parts.push(
+      `What the form asks this field to cover:\n${guidance}\n\n` +
+        'Use that ONLY to decide what kind of content belongs here. It contains made-up examples — ' +
+        'never copy their figures, names or wording into your answer. If the note below has no ' +
+        'figure of that kind, leave it out entirely rather than borrowing one from the examples.'
+    );
+  }
+  if (context) {
+    parts.push(
+      `Evidence already recorded for this initiative (you may draw on it, but add nothing beyond ` +
+        `it):\n${context}`
+    );
+  }
+  parts.push(`The text to expand:\n${text}`);
+  return parts.join('\n\n---\n\n');
+}
+
 app.post('/api/tighten', async (req, res) => {
   const text = (req.body && req.body.text) || '';
   const modeKey = REWRITE_MODES[req.body?.mode] ? req.body.mode : 'tighten';
@@ -314,12 +340,23 @@ app.post('/api/tighten', async (req, res) => {
   if (!cfg.enabled || !cfg.key) return res.json({ text, stub: true });
   try {
     const client = new OpenAI({ apiKey: cfg.key });
+    // Tighten only rewords what's there, so it never gets guidance or context —
+    // both could only tempt it to add something.
+    const user =
+      modeKey === 'elaborate'
+        ? elaborateUserMessage({
+            text,
+            label: req.body?.label,
+            guidance: req.body?.guidance,
+            context: req.body?.context,
+          })
+        : text;
     const completion = await client.chat.completions.create({
       model: mode.model(cfg),
       temperature: 0.3,
       messages: [
         { role: 'system', content: withOrgContext(mode.system, cfg.orgContext) },
-        { role: 'user', content: text },
+        { role: 'user', content: user },
       ],
     });
     res.json({ text: completion.choices[0]?.message?.content?.trim() || text });
@@ -336,17 +373,28 @@ app.post('/api/tighten', async (req, res) => {
 const QUICK_FILL_SYSTEM =
   'You turn a rough, informal note about an AI initiative into draft evidence for a Singapore ' +
   'government (IMDA) award submission. You follow two DIFFERENT rules for two kinds of content.\n\n' +
-  'RULE 0 — THE NAME. "name" is a short title, not a sentence: a few words naming what the ' +
-  'initiative actually is, taken from the problem and the solution described in the note — e.g. ' +
-  '"AI admissions triage" or "Code Rabbit for QA review". Work it out from the content you extract ' +
-  'for the other fields, so it matches them. Return null only if the note gives no idea what the ' +
-  'initiative is.\n\n' +
+  'RULE 0 — THE NAMES. "names" is a list of 3 short title options, not sentences: a few words each, ' +
+  'naming what the initiative actually is, worked out from the problem and the solution in the note ' +
+  'so they match the other fields. Make them genuinely different from each other — for example one ' +
+  'naming the AI tool used, one naming the process it improved, one naming the outcome. Return an ' +
+  'empty list only if the note gives no idea what the initiative is.\n\n' +
   'RULE 1 — QUALITATIVE TEXT (b8, b9, b10, and each result\'s "note"). Turn what the note says into ' +
   'proper sentences: 1 to 3 sentences, simple words, around 100 words at most. You may restate and ' +
   'join up what is stated, but you may NOT introduce facts, figures, tools or outcomes the note does ' +
   'not contain. If the note is thin on a field, write one short sentence — do not stretch it, and ' +
   'never write a placeholder or a bracketed note about missing information. Return null for a field ' +
   'only if the note says nothing at all bearing on it.\n\n' +
+  'What each field should cover:\n' +
+  'b8 — the specific operational challenge: what was going wrong, and how it hit day-to-day work ' +
+  '(delays, bottlenecks, rework, manual effort, resource limits).\n' +
+  'b9 — how much that problem cost, in measurable terms: time lost, money lost, work delayed, ' +
+  'opportunities missed. Only figures the note actually gives.\n' +
+  'b10 — what the AI solution was and how well it fixed the problem. NAME THE AI TOOL OR TYPE if ' +
+  'the note mentions one (e.g. ChatGPT, Gemini, Claude, Copilot, a chatbot, predictive analytics, ' +
+  'computer vision, machine learning). Draw on the measurable results you extract below, so b10 ' +
+  'and the results agree. If the note never says which AI was used, do not guess one.\n' +
+  'These descriptions tell you what BELONGS in each field. They are not examples to copy, and any ' +
+  'figures you write must come from the note itself.\n\n' +
   'RULE 2 — QUANTITATIVE FIGURES (before, after, monthlySaving). These follow the OPPOSITE rule and ' +
   'it is stricter. Fill a figure ONLY when the note contains an actual numeric hint for it. A hint ' +
   'may be vague — "roughly halved", "about 20% faster", "cut it by a third", "a couple of thousand a ' +
@@ -366,13 +414,13 @@ const QUICK_FILL_SYSTEM =
 
 const QUICK_FILL_SHAPE =
   'Reply with JSON only, in exactly this shape:\n' +
-  '{"name": string|null, "b8": string|null, "b9": string|null, "b10": string|null, "results": [{' +
+  '{"names": string[], "b8": string|null, "b9": string|null, "b10": string|null, "results": [{' +
   '"type": "productivity"|"financial"|"operational", "metricOrCategory": string, ' +
   '"before": number|null, "after": number|null, "unit": string|null, ' +
   '"monthlySaving": number|null, "note": string, ' +
   '"estimated": {"before": boolean, "after": boolean, "monthlySaving": boolean}}]}\n' +
-  'name = a short title for the initiative (a few words), derived from the problem and solution ' +
-  'you extract for the other fields. ' +
+  'names = 3 short title options for the initiative (a few words each), derived from the problem ' +
+  'and solution you extract for the other fields, and different from one another. ' +
   'b8 = the business problem. b9 = why the problem mattered / its significance. ' +
   'b10 = how well the AI solution addressed it.\n' +
   'before/after = the metric\'s value before and after, in the same unit (productivity and ' +
