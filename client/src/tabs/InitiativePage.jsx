@@ -11,6 +11,7 @@ import PrintView from './PrintView.jsx';
 
 export const DEPARTMENTS = [
   'Academic',
+  'Administrative',
   'Admission',
   'Finance',
   'Human Resources',
