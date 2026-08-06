@@ -435,10 +435,11 @@ export default function InitiativePage({ initiative, results, sectionD, reload, 
         <section>
           <p className="eyebrow">Transfer</p>
           <h2 className="section-title mb-3 mt-1">Export to ERPNext Quality Action Resolution</h2>
+          {/* Section D is deliberately not passed: it's one shared answer for
+              the whole submission, so it has no place in a per-initiative export. */}
           <ExportCard
             initiative={liveInitiative}
             results={linkedResults}
-            sectionD={sectionD}
             onFieldsChange={setExportFields}
           />
         </section>

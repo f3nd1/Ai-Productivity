@@ -36,6 +36,28 @@ The field provides common UCC department suggestions but remains editable, so a 
 A full Vite production build was not completed because dependency installation timed out in the verification environment.
 
 
+## August 2026, Export is per-initiative only
+
+No migration — export logic only.
+
+Action Taken was built from the global Section D, so every initiative's export
+carried the same text. Section D is now out of the export entirely, and the four
+fields map like this:
+
+- **Finding** — B8 + B9, unchanged.
+- **Root Cause & Resolution** — an analysis of why the problem happened and what
+  should be done. It has no plain-text source, so it starts empty and
+  "Generate with AI" writes it.
+- **Action Taken** — this initiative's B10 solution, then each of its Section C
+  qualitative notes tagged by type.
+- **General Notes** — calculated result sentences, department, and the
+  per-result detail blocks. The Section D figures (staff trained, total staff,
+  training weeks, hours freed) are gone from here too.
+
+Section D is also no longer sent to the AI as evidence for the export draft.
+It still has its own page, and still prints as its own section in Print / Export
+PDF, labelled as shared across the submission.
+
 ## August 2026, plainer and shorter AI output
 
 No migration — prompt changes only.

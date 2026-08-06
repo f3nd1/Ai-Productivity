@@ -17,19 +17,21 @@ export function buildFinding(initiative) {
   return join2(initiative.b8_problem, initiative.b9_significance);
 }
 
-// b) Root Cause & Resolution: B10, then each linked result's note prefixed with its type tag.
-export function buildRootCause(initiative, linkedResults) {
+// b) Root Cause & Resolution is the one field with no plain-text source: it's an
+// analysis of why the problem occurred and what should be done about it, which
+// only "Generate with AI" can produce. It starts empty rather than being seeded
+// with text copied from another field.
+
+// c) Action Taken: what was actually done for THIS initiative — the solution
+// (B10) followed by each linked result's qualitative note, tagged by type.
+// Deliberately not Section D: that's one shared organisation-wide answer, so
+// using it here gave every initiative an identical Action Taken.
+export function buildActionTaken(initiative, linkedResults = []) {
   const notes = linkedResults
     .map((r) => (r.fields?.note || '').trim())
     .map((n, i) => (n ? `[${TYPE_LABEL[linkedResults[i].type]}] ${n}` : null))
     .filter(Boolean);
-  return join2(initiative.b10_solution, notes.join('\n'));
-}
-
-// c) Action Taken: shared Section D — D14 narrative then D15 narrative.
-export function buildActionTaken(sectionD) {
-  if (!sectionD) return '';
-  return join2(sectionD.d14_narrative, sectionD.d15_narrative);
+  return join2(initiative?.b10_solution, notes.join('\n'));
 }
 
 // One "Label: value" line, or null when the value is blank/unset (so callers
@@ -66,30 +68,21 @@ function resultLabelLines(result) {
 }
 
 // d) General Notes: the calculated auto-phrase sentences, then every raw field
-// not already captured elsewhere in the export, as "Label: value" lines
-// (Section D fields incl. D16, then one block per linked Section C result).
-export function buildGeneralNotes(sectionD, linkedResults, initiative = null) {
+// of THIS initiative not already captured elsewhere, as "Label: value" lines.
+// Section D is excluded throughout — it is one shared answer for the whole
+// submission, so its figures aren't this initiative's evidence.
+export function buildGeneralNotes(linkedResults = [], initiative = null) {
   const sentences = linkedResults
     .map((r) => computeResult(r.type, r.fields || {}).sentence)
     .filter(Boolean)
     .join('\n');
 
-  const d = sectionD || {};
-  const sectionDLines = [
-    line('Department', initiative?.department),
-    line('D16 Future Readiness', d.d16_narrative),
-    line('Staff Trained', d.d14_staff_trained),
-    line('Total Staff', d.d14_total_staff),
-    line('Training Duration (weeks)', d.d14_training_weeks),
-    line('Hours Freed per Week', d.d15_hours_per_week),
-    line('Staff Affected', d.d15_staff_affected),
-  ].filter(Boolean).join('\n');
-
+  const initiativeLines = [line('Department', initiative?.department)].filter(Boolean).join('\n');
   const resultBlocks = linkedResults.map(resultLabelLines).filter(Boolean);
 
-  // Sentences first, then Section D labels, then each result block — blank line
-  // between every section for readability.
-  return [sentences, sectionDLines, ...resultBlocks].filter(Boolean).join('\n\n');
+  // Sentences first, then the initiative's own labels, then each result block —
+  // blank line between every section for readability.
+  return [sentences, initiativeLines, ...resultBlocks].filter(Boolean).join('\n\n');
 }
 
 // Man-Day Rate (SGD) auto-fill: first linked Financial result with a cost rate, × 8.
@@ -192,11 +185,12 @@ export function printResultRows(type, results) {
 
 // ---------- AI "Generate with AI" for the export block ----------
 
-// Everything the model is allowed to draw on for one initiative: its B fields,
-// every linked Section C result (already rendered as labelled lines + the
-// calculated sentence), and the shared overall Section D. Assembled here rather
-// than server-side so the model only ever sees data the app actually holds.
-export function buildExportEvidence(initiative, linkedResults, sectionD) {
+// Everything the model is allowed to draw on for one initiative: its B fields
+// and every linked Section C result (already rendered as labelled lines + the
+// calculated sentence). Assembled here rather than server-side so the model
+// only ever sees data the app actually holds. Section D is excluded — the
+// export describes one initiative, and Section D is shared by all of them.
+export function buildExportEvidence(initiative, linkedResults) {
   const b = [
     line('Initiative', initiative?.name),
     line('Department', initiative?.department),
@@ -219,23 +213,9 @@ export function buildExportEvidence(initiative, linkedResults, sectionD) {
     .filter(Boolean)
     .join('\n\n');
 
-  const d = sectionD || {};
-  const dLines = [
-    line('D14 Staff Adoption & Training', d.d14_narrative),
-    line('Staff Trained', d.d14_staff_trained),
-    line('Total Staff', d.d14_total_staff),
-    line('Training Duration (weeks)', d.d14_training_weeks),
-    line('D15 Impact on Work Processes', d.d15_narrative),
-    line('Hours Freed per Week', d.d15_hours_per_week),
-    line('Staff Affected', d.d15_staff_affected),
-    line('D16 Future Readiness', d.d16_narrative),
-  ].filter(Boolean).join('\n');
-
-  return [
-    b,
-    results ? `Section C measurable results:\n\n${results}` : '',
-    dLines ? `Section D (organisation-wide, shared by every initiative):\n${dLines}` : '',
-  ].filter(Boolean).join('\n\n');
+  return [b, results ? `Section C measurable results:\n\n${results}` : '']
+    .filter(Boolean)
+    .join('\n\n');
 }
 
 // Field labels as the export prompt asks the model to emit them, in order.

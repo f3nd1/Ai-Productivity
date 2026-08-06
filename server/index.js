@@ -428,9 +428,12 @@ const EXPORT_SYSTEM =
   'on one specific AI initiative\'s evidence. Write ONLY from the evidence given — ' +
   'never invent facts, numbers, or outcomes not present in the input. ' +
   'Finding: combine the stated business problem and its significance into one paragraph. ' +
-  'Root Cause & Resolution: combine the stated solution approach with the measurable results\' qualitative notes. ' +
-  'Action Taken: draw from the shared organisation-wide adoption/training/process-change content (Section D), ' +
-  'written as it applies to this initiative. ' +
+  'Root Cause & Resolution: this one is your analysis. Say why the problem happened, based on what the ' +
+  'evidence describes, and what should be done about it. Recommendations are allowed here — they are ' +
+  'advice, not claims about the past — but every reason you give must follow from the evidence, and ' +
+  'you must never state as fact anything the evidence does not contain. ' +
+  'Action Taken: what was actually done for this initiative — the solution approach and what the ' +
+  'measurable results\' qualitative notes describe. ' +
   'General Notes: any remaining figures or details not captured elsewhere. ' +
   `Output each of the four fields separately and clearly labeled. ${HOUSE_STYLE}`;
 

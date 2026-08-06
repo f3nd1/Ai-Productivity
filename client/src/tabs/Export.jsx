@@ -3,7 +3,6 @@ import { api } from '../api.js';
 import {
   resultsFor,
   buildFinding,
-  buildRootCause,
   buildActionTaken,
   buildGeneralNotes,
   buildExportEvidence,
@@ -71,15 +70,17 @@ function NumField({ label, value, onChange, note }) {
 // `onFieldsChange` reports the four text fields up so the print document shows
 // what's actually on screen — including AI-generated and hand-edited text —
 // rather than re-deriving the plain-concatenation defaults.
-export function ExportCard({ initiative, results, sectionD, onFieldsChange }) {
+export function ExportCard({ initiative, results, onFieldsChange }) {
   const linked = useMemo(() => resultsFor(initiative.id, results), [initiative.id, results]);
   const showNumbers = useMemo(() => hasFinancialResult(linked), [linked]);
 
   // Lazy-initialised from auto-fill rules; stays local so hand edits survive re-renders.
   const [finding, setFinding] = useState(() => buildFinding(initiative));
-  const [rootCause, setRootCause] = useState(() => buildRootCause(initiative, linked));
-  const [actionTaken, setActionTaken] = useState(() => buildActionTaken(sectionD));
-  const [generalNotes, setGeneralNotes] = useState(() => buildGeneralNotes(sectionD, linked, initiative));
+  // Root Cause & Resolution has no plain-text source — it's an analysis, so it
+  // starts empty and "Generate with AI" fills it.
+  const [rootCause, setRootCause] = useState('');
+  const [actionTaken, setActionTaken] = useState(() => buildActionTaken(initiative, linked));
+  const [generalNotes, setGeneralNotes] = useState(() => buildGeneralNotes(linked, initiative));
   const [manDayRate, setManDayRate] = useState(() => financialManDayRateDefault(linked));
   const ba = useMemo(() => productivityBeforeAfter(linked), [linked]);
   const [beforeTime, setBeforeTime] = useState(ba.before);
@@ -103,15 +104,15 @@ export function ExportCard({ initiative, results, sectionD, onFieldsChange }) {
       showNumbers ? { beforeTime, afterTime, manDayRate, cyclePerMonth } : null
     );
 
-  // AI-written versions of the four text fields, from this initiative's B+C
-  // evidence plus the shared overall Section D. A starting draft, not a locked
-  // final — every field stays editable afterwards. Fields the model omits keep
-  // their existing plain-concatenation text rather than being blanked.
+  // AI-written versions of the four text fields, from this initiative's own B+C
+  // evidence. A starting draft, not a locked final — every field stays editable
+  // afterwards. Fields the model omits keep their existing text rather than
+  // being blanked.
   async function generate() {
     setGenBusy(true);
     setGenErr(null);
     try {
-      const { text } = await api.exportDraft(buildExportEvidence(initiative, linked, sectionD));
+      const { text } = await api.exportDraft(buildExportEvidence(initiative, linked));
       const draft = parseExportDraft(text);
       if (draft.finding) setFinding(draft.finding);
       if (draft.rootCause) setRootCause(draft.rootCause);
@@ -146,8 +147,8 @@ export function ExportCard({ initiative, results, sectionD, onFieldsChange }) {
 
       <p className="mb-4 text-xs leading-5 text-slate-500">
         {genDone
-          ? 'AI draft written from this initiative’s B and C evidence plus the overall Section D. Edit any field before copying.'
-          : 'Showing the assembled text from your entered data. Use Generate with AI to rewrite the four fields below as prose — every field stays editable.'}
+          ? 'AI draft written from this initiative’s B and C evidence. Edit any field before copying.'
+          : 'Showing the assembled text from this initiative’s own data. Root Cause & Resolution is an analysis, so it stays empty until you use Generate with AI — which rewrites all four fields. Every field stays editable.'}
       </p>
       {genErr && <p className="mb-4 rounded-xl bg-red-50 px-3 py-2 text-sm text-red-600">{genErr}</p>}
 

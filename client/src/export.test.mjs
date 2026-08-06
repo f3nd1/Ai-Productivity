@@ -3,7 +3,6 @@ import assert from 'node:assert';
 import {
   resultsFor,
   buildFinding,
-  buildRootCause,
   buildActionTaken,
   buildGeneralNotes,
   financialManDayRateDefault,
@@ -44,26 +43,28 @@ assert.equal(
   'Manual QA took 20 hours weekly.\n\nLost $5,000 monthly due to overstocking.'
 );
 
-const rootCause = buildRootCause(initiative, linked);
-assert.ok(rootCause.startsWith('Deployed an ML classifier for QA triage.'));
-assert.ok(rootCause.includes('[Productivity] Team noticed faster turnaround.'));
-assert.ok(rootCause.includes('[Financial] Freed up analyst time.'));
-assert.ok(!rootCause.includes('Should not appear'));
+// Action Taken is this initiative's own solution + its result notes. It must
+// NOT be the shared Section D, which was giving every initiative identical text.
+const actionTaken = buildActionTaken(initiative, linked);
+assert.ok(actionTaken.startsWith('Deployed an ML classifier for QA triage.'));
+assert.ok(actionTaken.includes('[Productivity] Team noticed faster turnaround.'));
+assert.ok(actionTaken.includes('[Financial] Freed up analyst time.'));
+assert.ok(!actionTaken.includes('Should not appear'), 'another initiative\'s result must not leak in');
+assert.ok(!actionTaken.includes('Trained 8 of 10 staff'), 'Section D must not appear in Action Taken');
+assert.ok(!actionTaken.includes('Freed up 20 hours per week'), 'Section D must not appear in Action Taken');
+assert.equal(buildActionTaken({}, []), '', 'nothing to say when there is no solution and no notes');
 
-assert.equal(
-  buildActionTaken(sectionD),
-  'Trained 8 of 10 staff over 4 weeks.\n\nFreed up 20 hours per week for the team.'
-);
-
-const generalNotes = buildGeneralNotes(sectionD, linked, initiative);
+const generalNotes = buildGeneralNotes(linked, initiative);
 // Auto-phrase sentences lead.
 assert.ok(generalNotes.startsWith('Improved process speed by 30%'));
 assert.ok(generalNotes.includes('Saved $1,299 monthly in labour'));
 assert.ok(generalNotes.includes('Department: Quality Assurance'));
-// D16 now included as a labeled line (was the reported gap).
-assert.ok(generalNotes.includes('D16 Future Readiness: Built internal AI expertise.'));
-// Section D numeric labels present only when set (staff numbers not set here → absent).
-assert.ok(!generalNotes.includes('Staff Trained:'));
+// Section D is excluded entirely — it is shared across every initiative, so
+// its narrative and figures are not this initiative's evidence.
+assert.ok(!generalNotes.includes('D16 Future Readiness'));
+assert.ok(!generalNotes.includes('Built internal AI expertise'));
+assert.ok(!generalNotes.includes('Staff Trained'));
+assert.ok(!generalNotes.includes('Hours Freed per Week'));
 // Per-result labeled blocks: productivity + financial.
 assert.ok(generalNotes.includes('Result Type: Productivity'));
 assert.ok(generalNotes.includes('Metric Name: process speed'));
@@ -115,18 +116,19 @@ const noNumbers = formatCopyAll({ finding: 'F', rootCause: 'R', actionTaken: 'A'
 assert.ok(!noNumbers.includes('Man-Day Rate'));
 
 // --- buildExportEvidence: only real app data reaches the model ---
-const evidence = buildExportEvidence(initiative, linked, sectionD);
+const evidence = buildExportEvidence(initiative, linked);
 assert.ok(evidence.includes('B8 Business Problem: Manual QA took 20 hours weekly.'));
 assert.ok(evidence.includes('B10 Solution Effectiveness: Deployed an ML classifier'));
 assert.ok(evidence.includes('Result 1'));
 assert.ok(evidence.includes('Qualitative Note: Team noticed faster turnaround.'));
 assert.ok(evidence.includes('Calculated: Improved process speed by 30%'));
-assert.ok(evidence.includes('D14 Staff Adoption & Training: Trained 8 of 10 staff'));
-assert.ok(evidence.includes('D16 Future Readiness: Built internal AI expertise.'));
+// Section D never reaches the model for a per-initiative export.
+assert.ok(!evidence.includes('D14'));
+assert.ok(!evidence.includes('D16'));
+assert.ok(!evidence.includes('Trained 8 of 10 staff'));
+assert.ok(!evidence.includes('Built internal AI expertise'));
 // The other initiative's result must never leak into this initiative's evidence.
 assert.ok(!evidence.includes('Should not appear'));
-// Unset Section D numerics are omitted rather than sent as blanks.
-assert.ok(!evidence.includes('Staff Trained:'));
 
 // --- parseExportDraft: split the model's labelled reply into four fields ---
 const parsed = parseExportDraft(
