@@ -259,10 +259,11 @@ export default function App() {
 
           {tab === 'initiatives' &&
             (selected ? (
+              // No sectionD: the initiative page's export and print document are
+              // per-initiative, and Section D is shared by the whole submission.
               <InitiativePage
                 initiative={selected}
                 results={results}
-                sectionD={sectionD}
                 reload={reload}
                 onBack={() => setSelectedId(null)}
               />

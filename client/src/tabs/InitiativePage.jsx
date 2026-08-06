@@ -119,9 +119,10 @@ function InitiativeInfo({ info, setInfo, resultsContext }) {
   );
 }
 
-// `sectionD` is the ONE overall Section D, read-only here — it's edited on its
-// own top-level page. This page needs it only as context for the Export block.
-export default function InitiativePage({ initiative, results, sectionD, reload, onBack }) {
+// Section D is not used here at all: it's one shared answer for the whole
+// submission, edited on its own top-level page, and it belongs in neither the
+// per-initiative export nor the per-initiative print document.
+export default function InitiativePage({ initiative, results, reload, onBack }) {
   const registryRef = useRef(new Map());
   const savingRef = useRef(false);
   const generatingRef = useRef(false);
@@ -169,7 +170,7 @@ export default function InitiativePage({ initiative, results, sectionD, reload, 
   stateRef.current = { info, cResults, answers, notApplicable };
 
   const liveInitiative = { ...initiative, ...info };
-  const evidenceCtx = { initiative: liveInitiative, results: cResults, sectionD };
+  const evidenceCtx = { initiative: liveInitiative, results: cResults };
   const evidenceHas = (qid) => hasEvidence(qid, evidenceCtx);
   // Section C evidence, so elaborating B10 can name what was actually done.
   const resultsContext = useMemo(() => assembleAllResults(evidenceCtx), [cResults, info]);
@@ -465,7 +466,6 @@ export default function InitiativePage({ initiative, results, sectionD, reload, 
             results={cResults}
             answers={answers}
             notApplicable={notApplicable}
-            sectionD={sectionD}
             exportFields={exportFields}
           />
         )}

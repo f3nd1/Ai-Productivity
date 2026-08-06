@@ -18,12 +18,6 @@ const SECTION_B = [
   { number: '10', title: 'Solution Effectiveness', key: 'b10_solution' },
 ];
 
-const SECTION_D = [
-  { number: '14', title: 'Staff Adoption and Training', key: 'd14_narrative' },
-  { number: '15', title: 'Impact on Work Processes', key: 'd15_narrative' },
-  { number: '16', title: 'Future Readiness and Learning', key: 'd16_narrative' },
-];
-
 const EXPORT_FIELDS = [
   ['Finding', 'finding'],
   ['Root Cause & Resolution', 'rootCause'],
@@ -100,13 +94,16 @@ function ResultTable({ type, results }) {
 
 // The document itself, separate from how it gets mounted — so it can be
 // rendered and inspected without a DOM.
-export function PrintDocument({ initiative, results, answers, notApplicable, sectionD, exportFields }) {
+// Section D is deliberately absent: it is ONE shared answer for the whole
+// submission, so printing it inside a per-initiative record repeated the same
+// three narratives on every initiative's PDF. It belongs to the submission, not
+// to this document.
+export function PrintDocument({ initiative, results, answers, notApplicable, exportFields }) {
   const generated = new Date().toLocaleDateString('en-GB', {
     day: 'numeric',
     month: 'long',
     year: 'numeric',
   });
-  const d = sectionD || {};
   const fields = exportFields || {};
 
   return (
@@ -153,14 +150,6 @@ export function PrintDocument({ initiative, results, answers, notApplicable, sec
           </Numbered>
         );
       })}
-
-      <h2 className="print-section-title">Section D — Change Management and Workforce Impact</h2>
-      <p className="print-shared">Shared across all initiatives in this submission.</p>
-      {SECTION_D.map(({ number, title, key }) => (
-        <Numbered key={number} number={number} title={title}>
-          <Prose text={d[key]} />
-        </Numbered>
-      ))}
 
       <h2 className="print-section-title">Export — ERPNext Quality Action Resolution</h2>
       {EXPORT_FIELDS.map(([label, key]) => (

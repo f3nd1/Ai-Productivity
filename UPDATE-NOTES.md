@@ -36,6 +36,21 @@ The field provides common UCC department suggestions but remains editable, so a 
 A full Vite production build was not completed because dependency installation timed out in the verification environment.
 
 
+## August 2026, Section D out of the printed PDF
+
+No migration — client only.
+
+Print / Export PDF still printed the whole Section D — staff adoption, work
+process impact and future readiness — inside each initiative's document. Since
+Section D is one shared answer, every initiative's PDF carried the same three
+narratives. It's now removed: the document runs cover, Section B (8-10),
+Section C (11-13), then the four export fields, and stops.
+
+Section D keeps its own page and is still part of the submission — it just
+isn't per-initiative evidence, so it no longer appears in a per-initiative
+record. The initiative page no longer receives Section D at all now, since
+neither its export nor its print document uses it.
+
 ## August 2026, Elaborate uses the form's own guidance
 
 No migration — prompt and wiring only.
