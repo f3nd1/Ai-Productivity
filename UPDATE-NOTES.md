@@ -36,6 +36,28 @@ The field provides common UCC department suggestions but remains editable, so a 
 A full Vite production build was not completed because dependency installation timed out in the verification environment.
 
 
+## August 2026, plainer and shorter AI output
+
+No migration — prompt changes only.
+
+Generated text was padded and kept writing "United Ceres College achieved a
+remarkable reduction…" as though for an outside reader. This is an internal
+tool, so every prompt now shares one house style:
+
+- **1–3 sentences, around 100 words.** Applies to Generate C answers, Tighten,
+  Elaborate, the Export draft and Quick Fill alike.
+- **No organisation name, no third-person framing.** The reader knows which
+  college it is.
+- **No praise.** No "remarkable", "significant", "innovative", no sentences
+  about commitment or transformation. Facts and figures, then stop.
+- **No more `[add: ...]` markers.** Elaborate and Quick Fill now write less
+  rather than naming what's missing. Text generated before this change still
+  shows its markers highlighted so you can clear them.
+
+Quick Fill also now works the initiative name out from the problem and solution
+it extracts, so it matches the rest of the fields instead of being guessed
+separately.
+
 ## August 2026, Quick Fill becomes propose-and-elaborate
 
 No migration — this only changes how Quick Fill drafts into existing fields.

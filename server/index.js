@@ -200,24 +200,25 @@ app.put('/api/section-d', async (req, res) => {
 });
 
 // ---------- OpenAI drafting ----------
-// C11–C13 synthesise several Section C results, so they should be substantive:
-// target 150–300 words. Everything else just keeps the form's real 300-word cap.
-// The 300-word ceiling is absolute either way — the range is a target, not a quota.
-const lengthRule = (qid) =>
-  qid.startsWith('c')
-    ? 'Aim for 150-300 words. If the evidence provided is too thin to responsibly reach 150 words, ' +
-      'write a shorter, honest answer instead — never invent figures, tools, outcomes, or claims not ' +
-      'present in the evidence to reach the word count. Absolute ceiling: 300 words.'
-    : 'Hard limit: 300 words.';
+// House style, shared by every prompt below. This is an internal drafting tool
+// for one college, so naming the organisation in the output is noise — the
+// reader already knows whose evidence this is. Short and factual beats padded:
+// a sentence of praise is a sentence that isn't evidence.
+const HOUSE_STYLE =
+  'Write in plain, simple words. Keep it short: 1 to 3 sentences, around 100 words, and stop there. ' +
+  'Do NOT name the organisation or write about it in the third person — this is an internal document ' +
+  'and the reader knows which college it is. Just say what happened. ' +
+  'No praise, no adjectives like "remarkable", "significant" or "innovative", no sentences about ' +
+  'commitment, vision or transformation. State the facts and the figures, nothing else. ' +
+  'Better to write one honest sentence than to pad.';
 
-const systemPrompt = (qid) =>
+const systemPrompt = () =>
   'You draft answers for a Singapore government (IMDA) SME AI Impact Awards nomination. ' +
-  'Write ONLY from the evidence given — never invent numbers, tools, or outcomes not present in the input. ' +
-  'If evidence is thin, write a shorter, honest paragraph rather than padding with generic claims. ' +
-  `${lengthRule(qid)} Plain, professional, third person about the company (United Ceres College).`;
+  'Write ONLY from the evidence given — never invent numbers, tools, or outcomes not present in the ' +
+  `input. If the evidence is thin, write less rather than filling the gap. ${HOUSE_STYLE}`;
 
 const QUESTION_INTENT = {
-  b8: 'Describe the specific business challenge United Ceres College faced and how it impacted operations.',
+  b8: 'Describe the specific business challenge faced and how it affected day-to-day work.',
   b9: 'Explain how significant the problem was, with measurable costs or losses.',
   b10: 'Explain how well the AI solution addressed the problem.',
   c11: 'Summarise measurable productivity gains (speed, accuracy, efficiency) after implementing AI.',
@@ -244,7 +245,8 @@ function offReason(cfg) {
 // Fold persistent organisation context into a system prompt when present.
 function withOrgContext(system, orgContext) {
   return orgContext
-    ? `${system}\n\nOrganisation context (background about United Ceres College — apply it, do not repeat it verbatim):\n${orgContext}`
+    ? `${system}\n\nBackground context — apply it, but do not repeat it verbatim and do not name the ` +
+      `organisation in your answer:\n${orgContext}`
     : system;
 }
 
@@ -263,7 +265,7 @@ app.post('/api/draft/:questionId', async (req, res) => {
       model: cfg.analysisModel,
       temperature: 0.4,
       messages: [
-        { role: 'system', content: withOrgContext(systemPrompt(qid), cfg.orgContext) },
+        { role: 'system', content: withOrgContext(systemPrompt(), cfg.orgContext) },
         {
           role: 'user',
           content:
@@ -279,22 +281,21 @@ app.post('/api/draft/:questionId', async (req, res) => {
 });
 
 const TIGHTEN_SYSTEM =
-  'Rewrite the user text into a tighter, more professional register for an IMDA SME AI Impact Awards nomination. ' +
+  'Rewrite the user text so it is shorter and clearer, for an IMDA SME AI Impact Awards nomination. ' +
   'Do NOT change any facts, numbers, or claims. Do not add new information. ' +
   'Never add facts, numbers, or claims beyond what the input already states. ' +
-  'British spelling. Return only the rewritten text.';
+  `British spelling. Return only the rewritten text. ${HOUSE_STYLE}`;
 
-// Elaborate: the opposite direction to Tighten — it grows a fragment into prose.
-// The hard rule is that growing the text must never grow the CLAIMS: anything
-// the form asks for but the input doesn't state comes back as a visible
-// "[add: ...]" placeholder, never as a plausible-sounding invented figure.
+// Elaborate: the opposite direction to Tighten — it turns a fragment into
+// sentences. Growing the text must never grow the CLAIMS. It used to emit
+// "[add: ...]" markers for missing detail; that's been dropped in favour of
+// simply writing less, so the output is usable as-is.
 const ELABORATE_SYSTEM =
-  'You expand a short, fragmentary note into fuller prose for a Singapore government (IMDA) award ' +
-  'nomination form. Restate and naturally expand only what is explicitly stated — do not invent facts, ' +
-  'numbers, tools, or outcomes. Where the form\'s guidance calls for a specific detail (a number, ' +
-  'timeframe, or concrete example) that the input doesn\'t provide, insert a placeholder in square ' +
-  'brackets naming exactly what\'s missing, e.g. \'[add: X]\', rather than guessing a value. ' +
-  'Plain, professional register. Output only the expanded text, no preamble. Hard limit: 300 words.';
+  'You turn a short, fragmentary note into proper sentences for a Singapore government (IMDA) award ' +
+  'nomination form. Restate only what is explicitly stated — do not invent facts, numbers, tools, or ' +
+  'outcomes, and do not add detail the note does not contain. If the note is thin, the output is ' +
+  'short: that is correct, not a failure. Never write a placeholder or a bracketed note about missing ' +
+  `information — write only the sentences themselves. Output only the text, no preamble. ${HOUSE_STYLE}`;
 
 // Both modes take one field's text and return one field's text, so they share an
 // endpoint; only the system prompt and model tier differ. Elaborate uses the
@@ -335,19 +336,17 @@ app.post('/api/tighten', async (req, res) => {
 const QUICK_FILL_SYSTEM =
   'You turn a rough, informal note about an AI initiative into draft evidence for a Singapore ' +
   'government (IMDA) award submission. You follow two DIFFERENT rules for two kinds of content.\n\n' +
-  'RULE 0 — THE NAME. "name" is a short title for the initiative, not prose: a few words naming the ' +
-  'AI use case, e.g. "Claude for Quality Action drafting" or "AI admissions triage". Base it on what ' +
-  'the note actually describes. Never put a placeholder in it, and return null if the note does not ' +
-  'make clear what the initiative is.\n\n' +
-  'RULE 1 — QUALITATIVE TEXT (b8, b9, b10, and each result\'s "note"). Expand what the note says ' +
-  'into fuller, professional prose: turn fragments into complete sentences, make the reasoning ' +
-  'explicit, and write in the third person about the organisation. You may restate and develop ' +
-  'what is stated, but you may NOT introduce facts, figures, tools or outcomes the note does not ' +
-  'contain. Where the award form calls for a specific detail the note does not provide (a figure, a ' +
-  'timeframe, a standard, a concrete example), insert a placeholder in square brackets naming ' +
-  'exactly what is missing, e.g. "[add: how many hours per week this saved]". Prefer an elaborated ' +
-  'field containing placeholders over a null field — only return null if the note says nothing at ' +
-  'all bearing on that field.\n\n' +
+  'RULE 0 — THE NAME. "name" is a short title, not a sentence: a few words naming what the ' +
+  'initiative actually is, taken from the problem and the solution described in the note — e.g. ' +
+  '"AI admissions triage" or "Code Rabbit for QA review". Work it out from the content you extract ' +
+  'for the other fields, so it matches them. Return null only if the note gives no idea what the ' +
+  'initiative is.\n\n' +
+  'RULE 1 — QUALITATIVE TEXT (b8, b9, b10, and each result\'s "note"). Turn what the note says into ' +
+  'proper sentences: 1 to 3 sentences, simple words, around 100 words at most. You may restate and ' +
+  'join up what is stated, but you may NOT introduce facts, figures, tools or outcomes the note does ' +
+  'not contain. If the note is thin on a field, write one short sentence — do not stretch it, and ' +
+  'never write a placeholder or a bracketed note about missing information. Return null for a field ' +
+  'only if the note says nothing at all bearing on it.\n\n' +
   'RULE 2 — QUANTITATIVE FIGURES (before, after, monthlySaving). These follow the OPPOSITE rule and ' +
   'it is stricter. Fill a figure ONLY when the note contains an actual numeric hint for it. A hint ' +
   'may be vague — "roughly halved", "about 20% faster", "cut it by a third", "a couple of thousand a ' +
@@ -359,7 +358,11 @@ const QUICK_FILL_SYSTEM =
   'is a false statement in an award submission.\n\n' +
   'Classify each distinct measurable result as productivity (speed/accuracy/efficiency), financial ' +
   '(cost/savings/ROI), or operational (service/quality/process rate). Only include a result if the ' +
-  'note actually describes a change or benefit; never fabricate a result to fill out the response.';
+  'note actually describes a change or benefit; never fabricate a result to fill out the response.\n\n' +
+  'STYLE, for every piece of text you write: plain simple words. Do NOT name the organisation or ' +
+  'write about it in the third person — this is an internal document and the reader knows which ' +
+  'college it is. No praise, no adjectives like "remarkable" or "significant", no sentences about ' +
+  'commitment or transformation. Say what happened and stop.';
 
 const QUICK_FILL_SHAPE =
   'Reply with JSON only, in exactly this shape:\n' +
@@ -368,7 +371,8 @@ const QUICK_FILL_SHAPE =
   '"before": number|null, "after": number|null, "unit": string|null, ' +
   '"monthlySaving": number|null, "note": string, ' +
   '"estimated": {"before": boolean, "after": boolean, "monthlySaving": boolean}}]}\n' +
-  'name = a short title for the initiative (a few words, no placeholders). ' +
+  'name = a short title for the initiative (a few words), derived from the problem and solution ' +
+  'you extract for the other fields. ' +
   'b8 = the business problem. b9 = why the problem mattered / its significance. ' +
   'b10 = how well the AI solution addressed it.\n' +
   'before/after = the metric\'s value before and after, in the same unit (productivity and ' +
@@ -420,15 +424,15 @@ app.post('/api/quick-fill', async (req, res) => {
 
 // ---------- Export block: AI-written Quality Action Resolution fields ----------
 const EXPORT_SYSTEM =
-  'You write the Root Cause & Resolution intake fields for a Singapore government (IMDA) Quality Action ' +
-  'Resolution record, based on one specific AI initiative\'s evidence. Write ONLY from the evidence given — ' +
+  'You write the Root Cause & Resolution intake fields for a Quality Action Resolution record, based ' +
+  'on one specific AI initiative\'s evidence. Write ONLY from the evidence given — ' +
   'never invent facts, numbers, or outcomes not present in the input. ' +
   'Finding: combine the stated business problem and its significance into one paragraph. ' +
   'Root Cause & Resolution: combine the stated solution approach with the measurable results\' qualitative notes. ' +
   'Action Taken: draw from the shared organisation-wide adoption/training/process-change content (Section D), ' +
   'written as it applies to this initiative. ' +
   'General Notes: any remaining figures or details not captured elsewhere. ' +
-  'Plain, professional register. Output each of the four fields separately and clearly labeled.';
+  `Output each of the four fields separately and clearly labeled. ${HOUSE_STYLE}`;
 
 app.post('/api/export-draft', async (req, res) => {
   const evidence = (req.body && req.body.evidence) || '';

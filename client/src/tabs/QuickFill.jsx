@@ -23,7 +23,8 @@ function Field({ label, value, onChange, rows = 3, hint }) {
         <span className="field-label">{label}</span>
         <textarea className="field-control" rows={rows} value={value} onChange={(e) => onChange(e.target.value)} />
       </label>
-      {/* Same treatment Elaborate uses for its "[add: ...]" markers. */}
+      {/* Kept for text generated before placeholders were dropped — renders
+          nothing for new output, which no longer contains "[add: ...]". */}
       <PlaceholderNotice text={value} />
       {hint && <p className="mt-1 text-xs text-slate-400">{hint}</p>}
     </div>
@@ -191,7 +192,7 @@ export default function QuickFill({ info, onApply, onClose }) {
             <p className="muted-copy mt-1">
               {step === 'paste'
                 ? 'The problem, solution and results are one connected story — paste them together and they get sorted out below.'
-                : 'Nothing has been changed yet. Text in [brackets] marks a detail your notes didn’t give — replace it before submitting. Edit anything, untick what you don’t want, then apply.'}
+                : 'Nothing has been changed yet. Edit anything, untick what you don’t want, then apply.'}
             </p>
           </div>
           <Btn variant="ghost" onClick={onClose}>

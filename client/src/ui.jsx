@@ -36,10 +36,12 @@ export function WordCountCopy({ text }) {
   );
 }
 
-// Placeholders Elaborate leaves behind for detail it refused to invent, e.g.
-// "[add: how many hours per week this saved]". A textarea can't render styled
-// spans inside itself, so they're surfaced as a highlighted checklist under the
-// field — which also reads as a to-do list of what's still missing.
+// "[add: ...]" markers, e.g. "[add: how many hours per week this saved]".
+// The AI no longer produces these — Elaborate and Quick Fill now write less
+// instead of naming the gap. This stays so text generated before that change
+// still gets flagged for cleanup; it renders nothing when there are none.
+// A textarea can't style spans inside itself, so they're surfaced as a
+// highlighted checklist under the field.
 const PLACEHOLDER_RE = /\[add:[^\]]*\]/gi;
 
 export function findPlaceholders(text) {
