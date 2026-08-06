@@ -52,6 +52,7 @@ export const api = {
   tighten: (text) => req('POST', '/api/tighten', { text }),
   elaborate: (text) => req('POST', '/api/tighten', { text, mode: 'elaborate' }),
   exportDraft: (evidence) => req('POST', '/api/export-draft', { evidence }),
+  quickFill: (text) => req('POST', '/api/quick-fill', { text }),
   health: () => req('GET', '/api/health'),
 
   changelog: () => req('GET', '/api/changelog'),

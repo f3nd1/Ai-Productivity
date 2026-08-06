@@ -327,6 +327,68 @@ app.post('/api/tighten', async (req, res) => {
   }
 });
 
+// ---------- Quick Fill: rough notes -> structured B fields + proposed results ----------
+const QUICK_FILL_SYSTEM =
+  'You extract structured evidence from a rough, informal note about an AI initiative, for a ' +
+  'Singapore government (IMDA) award submission. Extract ONLY what is explicitly stated — never ' +
+  'invent numbers, metrics, or claims not present in the text. If the text doesn\'t clearly support ' +
+  'a field, return null/empty for it rather than guessing. Classify each distinct measurable result ' +
+  'mentioned as productivity (speed/accuracy/efficiency), financial (cost/savings/ROI), or ' +
+  'operational (service/quality/process rate) — only include a result if the text actually describes ' +
+  'a before/after or measurable change; do not fabricate a result to fill out the response.';
+
+const QUICK_FILL_SHAPE =
+  'Reply with JSON only, in exactly this shape:\n' +
+  '{"b8": string|null, "b9": string|null, "b10": string|null, "results": [' +
+  '{"type": "productivity"|"financial"|"operational", "metricOrCategory": string, ' +
+  '"before": number|null, "after": number|null, "unit": string|null, "note": string}]}\n' +
+  'b8 = the business problem. b9 = why the problem mattered / its significance. ' +
+  'b10 = how well the AI solution addressed it. ' +
+  'Use null for any of b8/b9/b10 the note does not clearly state, and [] for results if the note ' +
+  'describes no measurable change.';
+
+app.post('/api/quick-fill', async (req, res) => {
+  const notes = (req.body && req.body.text) || '';
+  if (!notes.trim()) return res.status(400).json({ error: 'No notes to parse.' });
+  const cfg = await effectiveConfig();
+  // Degraded mode: return the empty structure rather than an error, so the
+  // review screen still opens and the user can type into it by hand.
+  if (!cfg.enabled || !cfg.key) {
+    return res.json({
+      b8: null,
+      b9: null,
+      b10: null,
+      results: [],
+      stub: true,
+      message: `AI parsing unavailable — ${offReason(cfg)}. Fill the fields in by hand below.`,
+    });
+  }
+  try {
+    const client = new OpenAI({ apiKey: cfg.key });
+    const completion = await client.chat.completions.create({
+      model: cfg.analysisModel,
+      temperature: 0.2, // extraction, not composition — keep it literal
+      response_format: { type: 'json_object' },
+      messages: [
+        { role: 'system', content: withOrgContext(QUICK_FILL_SYSTEM, cfg.orgContext) },
+        { role: 'user', content: `${QUICK_FILL_SHAPE}\n\nThe note:\n\n${notes}` },
+      ],
+    });
+    const raw = completion.choices[0]?.message?.content?.trim() || '{}';
+    let parsed;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      return res.status(502).json({ error: 'The AI reply was not valid JSON. Try again, or fill the fields in by hand.' });
+    }
+    // Shape-checking and coercion happen client-side in quickfill.js, which is
+    // the tested single source of truth for what a usable proposal looks like.
+    res.json(parsed);
+  } catch (e) {
+    res.status(502).json({ error: `OpenAI request failed: ${e.message}` });
+  }
+});
+
 // ---------- Export block: AI-written Quality Action Resolution fields ----------
 const EXPORT_SYSTEM =
   'You write the Root Cause & Resolution intake fields for a Singapore government (IMDA) Quality Action ' +

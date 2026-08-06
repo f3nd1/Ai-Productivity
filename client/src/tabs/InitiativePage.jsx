@@ -8,6 +8,8 @@ import { Btn, TextInput, NarrativeField } from '../ui.jsx';
 import SectionC from './SectionC.jsx';
 import { ExportCard } from './Export.jsx';
 import PrintView from './PrintView.jsx';
+import QuickFill from './QuickFill.jsx';
+import { applyBFields, proposalToFields } from '../quickfill.js';
 
 export const DEPARTMENTS = [
   'Academic',
@@ -135,6 +137,9 @@ export default function InitiativePage({ initiative, results, sectionD, reload, 
   // untouched the rest of the time.
   const [exportFields, setExportFields] = useState({});
   const [printing, setPrinting] = useState(false);
+  const [quickFill, setQuickFill] = useState(false);
+  const quickFillRef = useRef(false);
+  quickFillRef.current = quickFill;
 
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState(null);
@@ -228,7 +233,10 @@ export default function InitiativePage({ initiative, results, sectionD, reload, 
     // Don't let a blur-triggered autosave run mid-generation — it would persist
     // an empty/partial final_answers and clobber the answers being generated.
     autosaveTimer.current = setTimeout(() => {
-      if (generatingRef.current) return;
+      // Also skipped while the Quick Fill modal is open: its fields sit inside
+      // this onBlur wrapper, and nothing in a review step should reach the
+      // database before the user has applied it.
+      if (generatingRef.current || quickFillRef.current) return;
       persist(false);
     }, 800);
   }
@@ -257,6 +265,25 @@ export default function InitiativePage({ initiative, results, sectionD, reload, 
     } catch (e) {
       setErr(`Could not save generated answers: ${e.message}`);
     }
+  }
+
+  // ---- Quick Fill ----
+  // Populates in-memory state exactly as typing would; the page-level Save is
+  // still what persists it, so nothing here writes to the database.
+  function applyQuickFill({ b8, b9, b10, results }) {
+    setInfo((s) => applyBFields(s, { b8, b9, b10 }));
+    setCResults((list) => [
+      ...list,
+      ...results.map((p) => ({
+        _key: `new-${(keyCounter.current += 1)}`,
+        initiative_id: initiative.id,
+        type: p.type,
+        fields: proposalToFields(p),
+      })),
+    ]);
+    setQuickFill(false);
+    setSaveMsg('Filled in — click Save to keep it');
+    setTimeout(() => setSaveMsg(null), 6000);
   }
 
   // ---- Tighten all ----
@@ -347,6 +374,9 @@ export default function InitiativePage({ initiative, results, sectionD, reload, 
             <Btn onClick={generateCAnswers} disabled={busy}>
               {allBusy ? 'Generating…' : 'Generate C answers'}
             </Btn>
+            <Btn onClick={() => setQuickFill(true)} disabled={busy}>
+              Quick Fill
+            </Btn>
             <Btn onClick={tightenAll} disabled={busy}>
               Tighten all
             </Btn>
@@ -412,6 +442,10 @@ export default function InitiativePage({ initiative, results, sectionD, reload, 
             onFieldsChange={setExportFields}
           />
         </section>
+
+        {quickFill && (
+          <QuickFill info={info} onApply={applyQuickFill} onClose={() => setQuickFill(false)} />
+        )}
 
         {printing && (
           <PrintView

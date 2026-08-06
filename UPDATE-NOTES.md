@@ -36,6 +36,26 @@ The field provides common UCC department suggestions but remains editable, so a 
 A full Vite production build was not completed because dependency installation timed out in the verification environment.
 
 
+## August 2026, Quick Fill
+
+No migration and no new columns — Quick Fill only populates existing fields.
+
+- "Quick Fill" sits beside "Generate C answers" on the initiative page. Paste one
+  rough note covering the problem, what you did and any numbers, and it comes
+  back as B8/B9/B10 plus proposed Section C results.
+- There is always a review step. Every extracted field and proposed result is
+  editable, each result has an include/exclude tick and a delete, and nothing
+  reaches the page until you click Apply.
+- Anything the note doesn't clearly state is left blank and labelled as such,
+  never guessed. Financial results deliberately arrive without saving figures —
+  a rough note rarely states the basis clearly enough, and inventing a money
+  number for an award submission is the one thing this must not do. Add the
+  hours and rate, or a direct monthly figure, on the card afterwards.
+- Applying fills the page in only. The existing Save button is still what
+  persists it, and replacing B8/B9/B10 text you already wrote asks first.
+- With live AI turned off or no key set, the review screen still opens empty so
+  the fields can be filled in by hand.
+
 ## August 2026, Initiative IDs + Figures Table
 
 ### Required Supabase migration
