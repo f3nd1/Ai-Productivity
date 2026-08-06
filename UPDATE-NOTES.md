@@ -36,6 +36,30 @@ The field provides common UCC department suggestions but remains editable, so a 
 A full Vite production build was not completed because dependency installation timed out in the verification environment.
 
 
+## August 2026, Quick Fill becomes propose-and-elaborate
+
+No migration — this only changes how Quick Fill drafts into existing fields.
+
+Quick Fill used to extract literally: anything not spelled out stayed blank, so
+a rough note produced three near-empty B fields. It now drafts, under two
+deliberately different rules.
+
+- **Wording may be elaborated.** B8/B9/B10 and each proposed result's note come
+  back as fuller prose. Where the form wants a specific detail your note didn't
+  give, you get a bracketed `[add: ...]` marker naming what's missing, shown in
+  the same highlighted panel Elaborate uses — not a blank box, and not an
+  invented fact.
+- **Figures may not.** A before/after value or monthly saving is filled only
+  when your note actually contains a numeric hint. Vague hints count — "roughly
+  halved", "about 20% faster", "a couple of thousand a month" — and the result
+  is labelled "Estimated from your notes — confirm or adjust" in amber. Edit the
+  value and the label clears, because it's then your figure. With no numeric
+  hint at all the field stays blank, exactly as before.
+
+Financial results can now carry a monthly saving when your note states one, so
+they compute straight away instead of always needing the figure added by hand.
+With no figure stated, they still arrive blank rather than guessed.
+
 ## August 2026, Quick Fill
 
 No migration and no new columns — Quick Fill only populates existing fields.

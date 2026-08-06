@@ -328,24 +328,48 @@ app.post('/api/tighten', async (req, res) => {
 });
 
 // ---------- Quick Fill: rough notes -> structured B fields + proposed results ----------
+// Quick Fill is propose-and-elaborate, not literal extraction — but the two
+// kinds of content follow different rules, and the difference is the whole
+// point. WORDS may be expanded; NUMBERS may not be conjured. A wrong figure in
+// a government submission is unrecoverable in a way clumsy prose never is.
 const QUICK_FILL_SYSTEM =
-  'You extract structured evidence from a rough, informal note about an AI initiative, for a ' +
-  'Singapore government (IMDA) award submission. Extract ONLY what is explicitly stated — never ' +
-  'invent numbers, metrics, or claims not present in the text. If the text doesn\'t clearly support ' +
-  'a field, return null/empty for it rather than guessing. Classify each distinct measurable result ' +
-  'mentioned as productivity (speed/accuracy/efficiency), financial (cost/savings/ROI), or ' +
-  'operational (service/quality/process rate) — only include a result if the text actually describes ' +
-  'a before/after or measurable change; do not fabricate a result to fill out the response.';
+  'You turn a rough, informal note about an AI initiative into draft evidence for a Singapore ' +
+  'government (IMDA) award submission. You follow two DIFFERENT rules for two kinds of content.\n\n' +
+  'RULE 1 — QUALITATIVE TEXT (b8, b9, b10, and each result\'s "note"). Expand what the note says ' +
+  'into fuller, professional prose: turn fragments into complete sentences, make the reasoning ' +
+  'explicit, and write in the third person about the organisation. You may restate and develop ' +
+  'what is stated, but you may NOT introduce facts, figures, tools or outcomes the note does not ' +
+  'contain. Where the award form calls for a specific detail the note does not provide (a figure, a ' +
+  'timeframe, a standard, a concrete example), insert a placeholder in square brackets naming ' +
+  'exactly what is missing, e.g. "[add: how many hours per week this saved]". Prefer an elaborated ' +
+  'field containing placeholders over a null field — only return null if the note says nothing at ' +
+  'all bearing on that field.\n\n' +
+  'RULE 2 — QUANTITATIVE FIGURES (before, after, monthlySaving). These follow the OPPOSITE rule and ' +
+  'it is stricter. Fill a figure ONLY when the note contains an actual numeric hint for it. A hint ' +
+  'may be vague — "roughly halved", "about 20% faster", "cut it by a third", "a couple of thousand a ' +
+  'month" all count, and you should convert them into concrete numbers. When you fill a figure from ' +
+  'a vague hint rather than an explicitly stated exact number, set the matching flag in "estimated" ' +
+  'to true. If the note gives NO numeric hint for a figure, leave it null and leave its flag false. ' +
+  'NEVER produce a number that has no basis in the note — not to look complete, not to fill the ' +
+  'shape, not even a plausible industry-typical value. A missing number is correct; an invented one ' +
+  'is a false statement in an award submission.\n\n' +
+  'Classify each distinct measurable result as productivity (speed/accuracy/efficiency), financial ' +
+  '(cost/savings/ROI), or operational (service/quality/process rate). Only include a result if the ' +
+  'note actually describes a change or benefit; never fabricate a result to fill out the response.';
 
 const QUICK_FILL_SHAPE =
   'Reply with JSON only, in exactly this shape:\n' +
-  '{"b8": string|null, "b9": string|null, "b10": string|null, "results": [' +
-  '{"type": "productivity"|"financial"|"operational", "metricOrCategory": string, ' +
-  '"before": number|null, "after": number|null, "unit": string|null, "note": string}]}\n' +
+  '{"b8": string|null, "b9": string|null, "b10": string|null, "results": [{' +
+  '"type": "productivity"|"financial"|"operational", "metricOrCategory": string, ' +
+  '"before": number|null, "after": number|null, "unit": string|null, ' +
+  '"monthlySaving": number|null, "note": string, ' +
+  '"estimated": {"before": boolean, "after": boolean, "monthlySaving": boolean}}]}\n' +
   'b8 = the business problem. b9 = why the problem mattered / its significance. ' +
-  'b10 = how well the AI solution addressed it. ' +
-  'Use null for any of b8/b9/b10 the note does not clearly state, and [] for results if the note ' +
-  'describes no measurable change.';
+  'b10 = how well the AI solution addressed it.\n' +
+  'before/after = the metric\'s value before and after, in the same unit (productivity and ' +
+  'operational results). monthlySaving = money saved per month in SGD (financial results only). ' +
+  'Set each "estimated" flag true only for a figure you derived from a vague hint; false for a ' +
+  'figure the note states exactly, and false for any figure you left null.';
 
 app.post('/api/quick-fill', async (req, res) => {
   const notes = (req.body && req.body.text) || '';

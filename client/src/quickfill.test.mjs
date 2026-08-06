@@ -6,6 +6,7 @@ import {
   wouldOverwriteB,
   applyBFields,
   toNumberOrNull,
+  clearEstimate,
 } from './quickfill.js';
 import { computeResult } from './calc.js';
 
@@ -36,9 +37,65 @@ const good = normalizeQuickFill({
 assert.equal(good.b8, 'Manual drafting took 40 minutes per record.', 'trimmed');
 assert.equal(good.b10, null, 'an unstated field stays null rather than becoming ""');
 assert.equal(good.results.length, 2);
-assert.deepEqual(good.results[0], {
-  type: 'productivity', metricOrCategory: 'drafting time', before: 40, after: 12, unit: 'minutes', note: 'Officers now review.',
+assert.equal(good.results[0].metricOrCategory, 'drafting time');
+assert.equal(good.results[0].before, 40);
+assert.equal(good.results[0].after, 12);
+assert.deepEqual(good.results[0].estimated, { before: false, after: false, monthlySaving: false });
+
+// ============================================================
+// Estimated flags — figures derived from a vague hint ("roughly halved").
+// The model's claim is validated, never trusted as given.
+// ============================================================
+const est = normalizeQuickFill({
+  results: [
+    // Both figures derived from "cut review time roughly in half".
+    { type: 'productivity', metricOrCategory: 'review time', before: 40, after: 20, unit: 'minutes', note: 'n',
+      estimated: { before: true, after: true } },
+    // Claims an estimate on a field it left null — meaningless, must be dropped,
+    // or the review would show an amber "Estimated" badge on an empty box.
+    { type: 'productivity', metricOrCategory: 'accuracy', before: null, after: null, unit: '', note: 'better',
+      estimated: { before: true, after: true } },
+    // A stated monthly saving, flagged as estimated.
+    { type: 'financial', metricOrCategory: 'Labour cost', monthlySaving: 2000, note: 'about two grand a month',
+      estimated: { monthlySaving: true } },
+  ],
 });
+assert.deepEqual(est.results[0].estimated, { before: true, after: true, monthlySaving: false });
+assert.deepEqual(
+  est.results[1].estimated,
+  { before: false, after: false, monthlySaving: false },
+  'an estimate flag on a null field is dropped, not trusted'
+);
+assert.equal(est.results[2].monthlySaving, 2000);
+assert.equal(est.results[2].estimated.monthlySaving, true);
+
+// Malformed flag payloads can't crash or fabricate.
+const flagJunk = normalizeQuickFill({
+  results: [
+    { type: 'productivity', metricOrCategory: 'm', before: 10, after: 5, note: 'n', estimated: 'yes' },
+    { type: 'productivity', metricOrCategory: 'm', before: 10, after: 5, note: 'n', estimated: null },
+    { type: 'productivity', metricOrCategory: 'm', before: 10, after: null, note: 'n', estimated: true },
+  ],
+});
+assert.deepEqual(flagJunk.results[0].estimated, { before: false, after: false, monthlySaving: false }, 'a string flag is ignored');
+assert.deepEqual(flagJunk.results[1].estimated, { before: false, after: false, monthlySaving: false });
+// A bare `true` is honoured, but still only for fields that actually hold a value.
+assert.deepEqual(flagJunk.results[2].estimated, { before: true, after: false, monthlySaving: false });
+
+// A result carrying only a monthly saving is still usable evidence.
+const moneyOnly = normalizeQuickFill({
+  results: [{ type: 'financial', metricOrCategory: '', monthlySaving: 500, note: '' }],
+});
+assert.equal(moneyOnly.results.length, 1);
+
+// --- clearEstimate: an edited value stops being the model's estimate ---
+const flagged = { before: 40, after: 20, estimated: { before: true, after: true, monthlySaving: false } };
+assert.deepEqual(clearEstimate(flagged, 'before').estimated, { before: false, after: true, monthlySaving: false });
+assert.equal(clearEstimate(flagged, 'after').estimated.before, true, 'clearing one flag leaves the other');
+// Clearing an already-clear flag is a no-op that returns the same object.
+const clean2 = { before: 1, estimated: { before: false, after: false, monthlySaving: false } };
+assert.equal(clearEstimate(clean2, 'before'), clean2);
+assert.doesNotThrow(() => clearEstimate({}, 'before'), 'missing estimated object is safe');
 
 // --- Junk from the model is dropped, not surfaced ---
 const junk = normalizeQuickFill({
@@ -80,12 +137,19 @@ const prodPartial = proposalToFields({ type: 'productivity', metricOrCategory: '
 assert.equal(prodPartial.direction, undefined);
 assert.equal(prodPartial.before, '');
 
-// Financial: no money figure is fabricated — the user completes the basis.
-const fin = proposalToFields({ type: 'financial', metricOrCategory: 'Labour cost', before: 5000, after: 3000, unit: '$', note: 'n' });
+// Financial with NO stated saving: still no money figure invented.
+const fin = proposalToFields({ type: 'financial', metricOrCategory: 'Labour cost', monthlySaving: null, note: 'n' });
 assert.equal(fin.costCategory, 'Labour cost');
 assert.equal(fin.directMonthly, undefined, 'no invented monthly saving');
 assert.equal(fin.hoursPerWeek, undefined);
 assert.equal(computeResult('financial', fin).monthly, undefined, 'shows no figure until the user fills it in');
+
+// Financial WITH a stated saving: carried through and computes.
+const finPaid = proposalToFields({ type: 'financial', metricOrCategory: 'Labour cost', monthlySaving: 2000, note: 'n' });
+assert.equal(finPaid.directMonthly, 2000);
+assert.equal(finPaid.timeBased, false);
+assert.equal(computeResult('financial', finPaid).monthly, 2000);
+assert.equal(computeResult('financial', finPaid).annual, 24000);
 
 const op = proposalToFields({ type: 'operational', metricOrCategory: 'resolution rate', before: 82, after: 95, unit: '%', note: '' });
 assert.equal(op.metric, 'resolution rate');

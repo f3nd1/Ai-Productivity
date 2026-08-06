@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { api } from '../api.js';
-import { normalizeQuickFill, wouldOverwriteB } from '../quickfill.js';
-import { Btn, TextInput } from '../ui.jsx';
+import { normalizeQuickFill, wouldOverwriteB, clearEstimate } from '../quickfill.js';
+import { Btn, PlaceholderNotice, TextInput } from '../ui.jsx';
 
 // Two-step modal: paste → review → apply. Nothing reaches the page until Apply,
 // and Apply only populates in-memory state — the page's own Save is still what
@@ -18,16 +18,40 @@ const PLACEHOLDER =
 
 function Field({ label, value, onChange, rows = 3, hint }) {
   return (
-    <label className="block">
-      <span className="field-label">{label}</span>
-      <textarea className="field-control" rows={rows} value={value} onChange={(e) => onChange(e.target.value)} />
+    <div>
+      <label className="block">
+        <span className="field-label">{label}</span>
+        <textarea className="field-control" rows={rows} value={value} onChange={(e) => onChange(e.target.value)} />
+      </label>
+      {/* Same treatment Elaborate uses for its "[add: ...]" markers. */}
+      <PlaceholderNotice text={value} />
       {hint && <p className="mt-1 text-xs text-slate-400">{hint}</p>}
-    </label>
+    </div>
+  );
+}
+
+// A figure the model derived from a vague hint ("roughly halved") rather than an
+// exact stated number. Typing over the value clears the flag — at that point
+// it's the user's figure, not the model's guess.
+function EstimatedNote() {
+  return (
+    <p className="mt-1 text-xs font-medium text-amber-600">Estimated from your notes — confirm or adjust</p>
+  );
+}
+
+function NumberField({ label, value, estimated, onChange }) {
+  return (
+    <div>
+      <TextInput label={label} value={value ?? ''} onChange={(e) => onChange(e.target.value)} />
+      {estimated && <EstimatedNote />}
+    </div>
   );
 }
 
 function ProposedResult({ item, onChange, onDelete }) {
   const set = (k) => (v) => onChange({ ...item, [k]: v });
+  // Editing a figure makes it the user's, so its estimate flag is dropped.
+  const setNumber = (k) => (v) => onChange({ ...clearEstimate(item, k), [k]: v });
   return (
     <div className={`rounded-2xl border p-4 ${item.include ? 'border-slate-200 bg-white' : 'border-slate-200 bg-slate-50 opacity-60'}`}>
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
@@ -59,10 +83,27 @@ function ProposedResult({ item, onChange, onDelete }) {
           value={item.metricOrCategory}
           onChange={(e) => set('metricOrCategory')(e.target.value)}
         />
-        {item.type !== 'financial' && (
+        {item.type === 'financial' ? (
+          <NumberField
+            label="Monthly saving (SGD)"
+            value={item.monthlySaving}
+            estimated={item.estimated?.monthlySaving}
+            onChange={setNumber('monthlySaving')}
+          />
+        ) : (
           <>
-            <TextInput label="Before value" value={item.before ?? ''} onChange={(e) => set('before')(e.target.value)} />
-            <TextInput label="After value" value={item.after ?? ''} onChange={(e) => set('after')(e.target.value)} />
+            <NumberField
+              label="Before value"
+              value={item.before}
+              estimated={item.estimated?.before}
+              onChange={setNumber('before')}
+            />
+            <NumberField
+              label="After value"
+              value={item.after}
+              estimated={item.estimated?.after}
+              onChange={setNumber('after')}
+            />
             <TextInput label="Unit" value={item.unit} onChange={(e) => set('unit')(e.target.value)} />
           </>
         )}
@@ -72,11 +113,11 @@ function ProposedResult({ item, onChange, onDelete }) {
         <Field label="Note" value={item.note} onChange={set('note')} rows={2} />
       </div>
 
-      {item.type === 'financial' && (
+      {item.type === 'financial' && item.monthlySaving === null && (
         <p className="mt-2 rounded-xl bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-800">
-          Saving figures aren't filled in automatically — a rough note rarely states the basis clearly
-          enough, and guessing would put an invented number in your submission. Add the hours and rate
-          (or a direct monthly figure) on the card after applying.
+          Your notes gave no saving figure, so none was filled in — guessing one would put an invented
+          number in your submission. Enter a monthly saving above, or add the hours and rate on the card
+          after applying.
         </p>
       )}
     </div>
@@ -140,7 +181,7 @@ export default function QuickFill({ info, onApply, onClose }) {
             <p className="muted-copy mt-1">
               {step === 'paste'
                 ? 'The problem, solution and results are one connected story — paste them together and they get sorted out below.'
-                : 'Nothing has been changed yet. Edit anything here, untick what you don’t want, then apply.'}
+                : 'Nothing has been changed yet. Text in [brackets] marks a detail your notes didn’t give — replace it before submitting. Edit anything, untick what you don’t want, then apply.'}
             </p>
           </div>
           <Btn variant="ghost" onClick={onClose}>
@@ -180,21 +221,21 @@ export default function QuickFill({ info, onApply, onClose }) {
                 value={review.b8}
                 onChange={(v) => setReview((s) => ({ ...s, b8: v }))}
                 rows={4}
-                hint={!review.b8.trim() ? 'Left blank — the notes didn’t clearly state this.' : null}
+                hint={!review.b8.trim() ? 'Left blank — the notes said nothing bearing on this.' : null}
               />
               <Field
                 label="B9 — Problem significance"
                 value={review.b9}
                 onChange={(v) => setReview((s) => ({ ...s, b9: v }))}
                 rows={4}
-                hint={!review.b9.trim() ? 'Left blank — the notes didn’t clearly state this.' : null}
+                hint={!review.b9.trim() ? 'Left blank — the notes said nothing bearing on this.' : null}
               />
               <Field
                 label="B10 — Solution effectiveness"
                 value={review.b10}
                 onChange={(v) => setReview((s) => ({ ...s, b10: v }))}
                 rows={4}
-                hint={!review.b10.trim() ? 'Left blank — the notes didn’t clearly state this.' : null}
+                hint={!review.b10.trim() ? 'Left blank — the notes said nothing bearing on this.' : null}
               />
             </div>
 

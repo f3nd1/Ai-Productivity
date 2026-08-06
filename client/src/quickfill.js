@@ -24,10 +24,34 @@ const text = (v) => (typeof v === 'string' ? v.trim() : '') || '';
 const textOrNull = (v) => text(v) || null;
 
 // A proposal earns a place in the review only if it carries something
-// measurable: a before, an after, or a named metric with a note explaining it.
+// measurable: a figure, or a named metric with a note explaining it.
 // Otherwise it's noise the model produced to fill out the response.
 function isUsable(r) {
-  return r.before !== null || r.after !== null || (r.metricOrCategory !== '' && r.note !== '');
+  return (
+    r.before !== null ||
+    r.after !== null ||
+    r.monthlySaving !== null ||
+    (r.metricOrCategory !== '' && r.note !== '')
+  );
+}
+
+// Quantitative fields that can carry an "estimated from a vague hint" flag.
+export const ESTIMABLE_FIELDS = ['before', 'after', 'monthlySaving'];
+
+// The model's own `estimated` claims are never taken at face value. A flag only
+// survives if the field it refers to actually holds a number — otherwise the
+// model is asserting it estimated something it left blank, which is meaningless
+// and would render an amber "Estimated" badge against an empty box.
+function normalizeEstimated(rawFlags, values) {
+  // Tolerate a bare `true` at result level; it still can't invent anything,
+  // because every flag below is gated on the value being present.
+  const all = rawFlags === true;
+  const src = rawFlags && typeof rawFlags === 'object' ? rawFlags : {};
+  const out = {};
+  for (const key of ESTIMABLE_FIELDS) {
+    out[key] = values[key] !== null && (all || src[key] === true);
+  }
+  return out;
 }
 
 export function normalizeQuickFill(raw) {
@@ -36,14 +60,21 @@ export function normalizeQuickFill(raw) {
 
   const results = list
     .map((r) => (r && typeof r === 'object' ? r : {}))
-    .map((r) => ({
-      type: RESULT_TYPES.includes(r.type) ? r.type : 'productivity',
-      metricOrCategory: text(r.metricOrCategory),
-      before: toNumberOrNull(r.before),
-      after: toNumberOrNull(r.after),
-      unit: text(r.unit),
-      note: text(r.note),
-    }))
+    .map((r) => {
+      const values = {
+        before: toNumberOrNull(r.before),
+        after: toNumberOrNull(r.after),
+        monthlySaving: toNumberOrNull(r.monthlySaving),
+      };
+      return {
+        type: RESULT_TYPES.includes(r.type) ? r.type : 'productivity',
+        metricOrCategory: text(r.metricOrCategory),
+        ...values,
+        unit: text(r.unit),
+        note: text(r.note),
+        estimated: normalizeEstimated(r.estimated, values),
+      };
+    })
     .filter(isUsable);
 
   return {
@@ -54,15 +85,27 @@ export function normalizeQuickFill(raw) {
   };
 }
 
+// Editing a value in the review makes it the user's number, not the model's
+// estimate, so the flag is cleared. Only ever clears — reviewing can't promote
+// something to "estimated".
+export function clearEstimate(item, field) {
+  if (!item.estimated?.[field]) return item;
+  return { ...item, estimated: { ...item.estimated, [field]: false } };
+}
+
 // Map one reviewed proposal onto the `fields` shape the Section C calculators
-// expect. Financial results are the odd one out: the calculator needs a saving
-// basis (hours+rate, or a direct monthly figure) that a rough note rarely
-// states outright, so nothing numeric is fabricated for it — the user completes
-// the saving inputs on the card after applying.
+// expect. A financial result only gets a money figure when the note actually
+// gave one (monthlySaving); with no figure it arrives as a category and note
+// for the user to complete, rather than with a fabricated saving.
 export function proposalToFields(p) {
   const base = { note: p.note || '' };
   if (p.type === 'financial') {
-    return { ...base, costCategory: p.metricOrCategory || '' };
+    const fields = { ...base, costCategory: p.metricOrCategory || '' };
+    if (p.monthlySaving !== null && p.monthlySaving !== undefined && p.monthlySaving !== '') {
+      fields.timeBased = false; // a stated monthly figure, not an hours × rate basis
+      fields.directMonthly = p.monthlySaving;
+    }
+    return fields;
   }
   const fields = {
     ...base,
