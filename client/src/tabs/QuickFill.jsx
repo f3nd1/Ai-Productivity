@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { api } from '../api.js';
-import { normalizeQuickFill, wouldOverwriteB, clearEstimate } from '../quickfill.js';
+import { normalizeQuickFill, wouldOverwriteInfo, overwrittenFields, clearEstimate } from '../quickfill.js';
 import { Btn, PlaceholderNotice, TextInput } from '../ui.jsx';
 
 // Two-step modal: paste → review → apply. Nothing reaches the page until Apply,
@@ -141,6 +141,7 @@ export default function QuickFill({ info, onApply, onClose }) {
       const raw = await api.quickFill(notes);
       const clean = normalizeQuickFill(raw);
       setReview({
+        name: clean.name || '',
         b8: clean.b8 || '',
         b9: clean.b9 || '',
         b10: clean.b10 || '',
@@ -157,12 +158,21 @@ export default function QuickFill({ info, onApply, onClose }) {
 
   const included = review?.results.filter((r) => r.include) || [];
   const nothingToApply =
-    review && !review.b8.trim() && !review.b9.trim() && !review.b10.trim() && included.length === 0;
+    review &&
+    !review.name.trim() &&
+    !review.b8.trim() &&
+    !review.b9.trim() &&
+    !review.b10.trim() &&
+    included.length === 0;
+
+  const payload = review
+    ? { name: review.name, b8: review.b8, b9: review.b9, b10: review.b10, results: included }
+    : null;
+  const clashes = payload ? overwrittenFields(info, payload) : [];
 
   function apply() {
-    const payload = { b8: review.b8, b9: review.b9, b10: review.b10, results: included };
-    // Warn before replacing B text the user already wrote — never silently.
-    if (!confirming && wouldOverwriteB(info, payload)) {
+    // Warn before replacing anything the user already wrote — never silently.
+    if (!confirming && wouldOverwriteInfo(info, payload)) {
       setConfirming(true);
       return;
     }
@@ -216,6 +226,19 @@ export default function QuickFill({ info, onApply, onClose }) {
         {step === 'review' && review && (
           <>
             <div className="mt-5 space-y-4">
+              <div>
+                <TextInput
+                  label="Initiative name"
+                  value={review.name}
+                  onChange={(e) => setReview((s) => ({ ...s, name: e.target.value }))}
+                  placeholder="e.g. Claude for Quality Action drafting"
+                />
+                {!review.name.trim() && (
+                  <p className="mt-1 text-xs text-slate-400">
+                    Left blank — the notes didn’t make clear what to call this initiative.
+                  </p>
+                )}
+              </div>
               <Field
                 label="B8 — Business problem"
                 value={review.b8}
@@ -275,7 +298,7 @@ export default function QuickFill({ info, onApply, onClose }) {
             {confirming && (
               <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-4">
                 <p className="text-sm font-semibold text-amber-900">
-                  This will replace your existing B8/B9/B10 text — continue?
+                  This will replace your existing {clashes.join(', ')} — continue?
                 </p>
                 <p className="mt-1 text-xs text-amber-800">
                   Only the fields filled in above are replaced. Applied changes still aren’t saved until you

@@ -78,12 +78,17 @@ export function normalizeQuickFill(raw) {
     .filter(isUsable);
 
   return {
+    // A title, not prose: collapse any newlines and keep it short. Placeholders
+    // are stripped — "[add: ...]" belongs in a narrative field, not in a name.
+    name: textOrNull(stripPlaceholders(text(src.name).replace(/\s+/g, ' ')).slice(0, 80)),
     b8: textOrNull(src.b8),
     b9: textOrNull(src.b9),
     b10: textOrNull(src.b10),
     results,
   };
 }
+
+const stripPlaceholders = (s) => s.replace(/\[add:[^\]]*\]/gi, '').replace(/\s{2,}/g, ' ').trim();
 
 // Editing a value in the review makes it the user's number, not the model's
 // estimate, so the flag is cleared. Only ever clears — reviewing can't promote
@@ -126,22 +131,33 @@ export function proposalToFields(p) {
   return fields;
 }
 
-// Does applying overwrite B narrative the user already wrote?
-export function wouldOverwriteB(info, reviewed) {
-  const filled = (v) => typeof v === 'string' && v.trim() !== '';
-  return (
-    (filled(info?.b8_problem) && filled(reviewed.b8)) ||
-    (filled(info?.b9_significance) && filled(reviewed.b9)) ||
-    (filled(info?.b10_solution) && filled(reviewed.b10))
-  );
+// The page fields Quick Fill can populate, and what to call them in the
+// overwrite warning.
+const INFO_FIELDS = [
+  { key: 'name', target: 'name', label: 'initiative name' },
+  { key: 'b8', target: 'b8_problem', label: 'B8' },
+  { key: 'b9', target: 'b9_significance', label: 'B9' },
+  { key: 'b10', target: 'b10_solution', label: 'B10' },
+];
+
+const filled = (v) => typeof v === 'string' && v.trim() !== '';
+
+// Which existing fields applying would replace — named, so the warning can say
+// what's actually at risk rather than listing everything Quick Fill can touch.
+export function overwrittenFields(info, reviewed) {
+  return INFO_FIELDS.filter((f) => filled(info?.[f.target]) && filled(reviewed?.[f.key])).map((f) => f.label);
 }
 
-// Only non-empty B fields are applied, so a field the model left blank never
-// wipes text the user already has.
-export function applyBFields(info, reviewed) {
+export function wouldOverwriteInfo(info, reviewed) {
+  return overwrittenFields(info, reviewed).length > 0;
+}
+
+// Only non-empty fields are applied, so anything the model left blank never
+// wipes what the user already has.
+export function applyInfoFields(info, reviewed) {
   const next = { ...info };
-  if (reviewed.b8?.trim()) next.b8_problem = reviewed.b8.trim();
-  if (reviewed.b9?.trim()) next.b9_significance = reviewed.b9.trim();
-  if (reviewed.b10?.trim()) next.b10_solution = reviewed.b10.trim();
+  for (const f of INFO_FIELDS) {
+    if (filled(reviewed?.[f.key])) next[f.target] = reviewed[f.key].trim();
+  }
   return next;
 }

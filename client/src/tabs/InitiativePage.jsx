@@ -9,7 +9,7 @@ import SectionC from './SectionC.jsx';
 import { ExportCard } from './Export.jsx';
 import PrintView from './PrintView.jsx';
 import QuickFill from './QuickFill.jsx';
-import { applyBFields, proposalToFields } from '../quickfill.js';
+import { applyInfoFields, proposalToFields } from '../quickfill.js';
 
 export const DEPARTMENTS = [
   'Academic',
@@ -270,8 +270,8 @@ export default function InitiativePage({ initiative, results, sectionD, reload, 
   // ---- Quick Fill ----
   // Populates in-memory state exactly as typing would; the page-level Save is
   // still what persists it, so nothing here writes to the database.
-  function applyQuickFill({ b8, b9, b10, results }) {
-    setInfo((s) => applyBFields(s, { b8, b9, b10 }));
+  function applyQuickFill({ name, b8, b9, b10, results }) {
+    setInfo((s) => applyInfoFields(s, { name, b8, b9, b10 }));
     setCResults((list) => [
       ...list,
       ...results.map((p) => ({

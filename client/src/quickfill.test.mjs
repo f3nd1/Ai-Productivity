@@ -3,8 +3,9 @@ import assert from 'node:assert';
 import {
   normalizeQuickFill,
   proposalToFields,
-  wouldOverwriteB,
-  applyBFields,
+  wouldOverwriteInfo,
+  overwrittenFields,
+  applyInfoFields,
   toNumberOrNull,
   clearEstimate,
 } from './quickfill.js';
@@ -115,7 +116,7 @@ assert.equal(junk.results[0].type, 'productivity', 'an unknown type falls back r
 assert.equal(junk.results[0].before, 5, 'numeric strings coerce');
 assert.equal(junk.results[1].metricOrCategory, 'resolution rate');
 // Totally malformed input must not throw.
-assert.deepEqual(normalizeQuickFill(null), { b8: null, b9: null, b10: null, results: [] });
+assert.deepEqual(normalizeQuickFill(null), { name: null, b8: null, b9: null, b10: null, results: [] });
 assert.deepEqual(normalizeQuickFill({ results: 'nope' }).results, []);
 assert.deepEqual(normalizeQuickFill('a string').results, []);
 
@@ -156,20 +157,39 @@ assert.equal(op.metric, 'resolution rate');
 assert.equal(op.unit, '%');
 assert.equal(computeResult('operational', op).pointChange, 13);
 
-// --- Overwrite detection ---
-const existing = { b8_problem: 'already written', b9_significance: '', b10_solution: '' };
-assert.equal(wouldOverwriteB(existing, { b8: 'new', b9: null, b10: null }), true);
-assert.equal(wouldOverwriteB(existing, { b8: null, b9: 'new', b10: null }), false, 'no clash when the existing field is empty');
-assert.equal(wouldOverwriteB({}, { b8: 'new', b9: 'new', b10: 'new' }), false, 'nothing to overwrite on a blank page');
-assert.equal(wouldOverwriteB(existing, { b8: '   ', b9: null, b10: null }), false, 'whitespace is not a replacement');
+// --- Overwrite detection (name included) ---
+const existing = { name: 'My initiative', b8_problem: 'already written', b9_significance: '', b10_solution: '' };
+assert.equal(wouldOverwriteInfo(existing, { b8: 'new', b9: null, b10: null }), true);
+assert.equal(wouldOverwriteInfo(existing, { b8: null, b9: 'new', b10: null }), false, 'no clash when the existing field is empty');
+assert.equal(wouldOverwriteInfo({}, { name: 'n', b8: 'new', b9: 'new', b10: 'new' }), false, 'nothing to overwrite on a blank page');
+assert.equal(wouldOverwriteInfo(existing, { b8: '   ', b9: null, b10: null }), false, 'whitespace is not a replacement');
+assert.equal(wouldOverwriteInfo(existing, { name: 'New title' }), true, 'replacing the name counts as an overwrite');
+// The warning names exactly what is at risk, not everything Quick Fill can touch.
+assert.deepEqual(overwrittenFields(existing, { name: 'New title', b8: 'new', b9: 'new' }), ['initiative name', 'B8']);
+assert.deepEqual(overwrittenFields(existing, { b9: 'new' }), [], 'B9 was empty, so nothing is lost');
 
-// --- applyBFields: blanks never wipe existing text ---
-const applied = applyBFields(
-  { b8_problem: 'keep me', b9_significance: 'also keep', b10_solution: '' },
-  { b8: null, b9: 'replaced', b10: '  new solution  ' }
+// --- applyInfoFields: blanks never wipe existing text ---
+const applied = applyInfoFields(
+  { name: 'keep name', b8_problem: 'keep me', b9_significance: 'also keep', b10_solution: '' },
+  { name: null, b8: null, b9: 'replaced', b10: '  new solution  ' }
 );
+assert.equal(applied.name, 'keep name', 'a null name leaves the title alone');
 assert.equal(applied.b8_problem, 'keep me', 'a null extraction leaves the field alone');
 assert.equal(applied.b9_significance, 'replaced');
 assert.equal(applied.b10_solution, 'new solution', 'trimmed on the way in');
+assert.equal(applyInfoFields({}, { name: '  AI triage  ' }).name, 'AI triage', 'name is applied and trimmed');
+
+// --- The name is a title, not prose ---
+assert.equal(normalizeQuickFill({ name: '  AI admissions triage  ' }).name, 'AI admissions triage');
+assert.equal(normalizeQuickFill({ name: 'Line one\nline two' }).name, 'Line one line two', 'newlines collapse');
+assert.equal(
+  normalizeQuickFill({ name: 'AI triage [add: which department]' }).name,
+  'AI triage',
+  'placeholders are stripped from a title — they belong in narrative fields'
+);
+assert.equal(normalizeQuickFill({ name: '[add: the initiative name]' }).name, null, 'a title that is only a placeholder is no title');
+assert.equal(normalizeQuickFill({ name: 'x'.repeat(200) }).name.length, 80, 'over-long titles are capped');
+assert.equal(normalizeQuickFill({}).name, null);
+assert.equal(normalizeQuickFill({ name: 42 }).name, null);
 
 console.log('quickfill.test.mjs: all assertions passed');

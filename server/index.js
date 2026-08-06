@@ -335,6 +335,10 @@ app.post('/api/tighten', async (req, res) => {
 const QUICK_FILL_SYSTEM =
   'You turn a rough, informal note about an AI initiative into draft evidence for a Singapore ' +
   'government (IMDA) award submission. You follow two DIFFERENT rules for two kinds of content.\n\n' +
+  'RULE 0 — THE NAME. "name" is a short title for the initiative, not prose: a few words naming the ' +
+  'AI use case, e.g. "Claude for Quality Action drafting" or "AI admissions triage". Base it on what ' +
+  'the note actually describes. Never put a placeholder in it, and return null if the note does not ' +
+  'make clear what the initiative is.\n\n' +
   'RULE 1 — QUALITATIVE TEXT (b8, b9, b10, and each result\'s "note"). Expand what the note says ' +
   'into fuller, professional prose: turn fragments into complete sentences, make the reasoning ' +
   'explicit, and write in the third person about the organisation. You may restate and develop ' +
@@ -359,11 +363,12 @@ const QUICK_FILL_SYSTEM =
 
 const QUICK_FILL_SHAPE =
   'Reply with JSON only, in exactly this shape:\n' +
-  '{"b8": string|null, "b9": string|null, "b10": string|null, "results": [{' +
+  '{"name": string|null, "b8": string|null, "b9": string|null, "b10": string|null, "results": [{' +
   '"type": "productivity"|"financial"|"operational", "metricOrCategory": string, ' +
   '"before": number|null, "after": number|null, "unit": string|null, ' +
   '"monthlySaving": number|null, "note": string, ' +
   '"estimated": {"before": boolean, "after": boolean, "monthlySaving": boolean}}]}\n' +
+  'name = a short title for the initiative (a few words, no placeholders). ' +
   'b8 = the business problem. b9 = why the problem mattered / its significance. ' +
   'b10 = how well the AI solution addressed it.\n' +
   'before/after = the metric\'s value before and after, in the same unit (productivity and ' +
