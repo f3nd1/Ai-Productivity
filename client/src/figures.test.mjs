@@ -16,7 +16,7 @@ const initiatives = [
 
 const results = [
   // Productivity: 40 -> 12, lower is better => 70% reduction
-  { id: 'r1', initiative_id: 'a', type: 'productivity', fields: { metric: 'drafting time', before: 40, after: 12, direction: 'lower' } },
+  { id: 'r1', initiative_id: 'a', type: 'productivity', fields: { metric: 'drafting time', unit: 'minutes', before: 40, after: 12, direction: 'lower' } },
   // Financial: 10h * $30 * 4.33 = $1299/mo, $15588/yr, cost 4000
   { id: 'r2', initiative_id: 'a', type: 'financial', fields: { timeBased: true, hoursPerWeek: 10, rate: 30, costCategory: 'Labour cost', oneTimeCost: 4000 } },
   // Operational with "%" unit => point change
@@ -34,6 +34,7 @@ assert.equal(p.code, 'INIT-01');
 assert.equal(p.initiative, 'Admissions triage');
 assert.equal(p.typeLabel, 'Productivity');
 assert.equal(p.metric, 'drafting time');
+assert.equal(p.unit, 'minutes', 'the unit is shown so the before/after numbers mean something');
 assert.equal(p.prodBefore, 40);
 assert.equal(p.prodAfter, 12);
 assert.equal(p.prodPct, 70);
@@ -44,6 +45,7 @@ assert.equal(p.opBefore, null);
 // --- Financial row: cost category used as the metric, ROI + payback present ---
 const f = rows[1];
 assert.equal(f.metric, 'Labour cost', 'financial rows show cost category');
+assert.equal(f.unit, 'SGD', 'financial money columns are denominated in SGD');
 assert.equal(f.finMonthly, 1299);
 assert.equal(f.finAnnual, 15588);
 assert.equal(f.finRoi, 289.7); // (15588-4000)/4000*100
@@ -58,6 +60,7 @@ assert.equal(opPoints.initiative, 'Untitled initiative');
 assert.equal(opPoints.opBefore, 82);
 assert.equal(opPoints.opAfter, 95);
 assert.equal(opPoints.opChange, 13);
+assert.equal(opPoints.unit, '%');
 assert.equal(opPoints.opChangeLabel, '+13 points');
 const opPct = rows[3];
 assert.equal(opPct.opChange, -40); // (30-50)/50*100
@@ -78,6 +81,13 @@ const sparse = buildFigureRows({ initiatives, results: [{ id: 'x', initiative_id
 assert.equal(sparse.prodBefore, null);
 assert.equal(sparse.prodPct, null);
 assert.equal(sparse.metric, '—');
+assert.equal(sparse.unit, '—', 'a missing unit renders as a dash, never "undefined"');
+// Legacy rows stored the literal 'other' plus a separate otherUnit.
+assert.equal(
+  buildFigureRows({ initiatives, results: [{ id: 'L', initiative_id: 'a', type: 'operational', fields: { unit: 'other', otherUnit: 'cases' } }] })[0].unit,
+  'cases',
+  'legacy other/otherUnit rows resolve'
+);
 
 // --- Sorting ---
 const ids = (rs) => rs.map((r) => r.id).join(',');
@@ -106,11 +116,12 @@ const csv = figureRowsToCsv(rows);
 const lines = csv.split('\r\n');
 assert.equal(lines.length, 5); // header + 4 rows
 assert.ok(lines[0].includes('"Initiative ID"'));
+assert.ok(lines[0].includes('"Unit"'));
 assert.ok(lines[0].includes('"Productivity — % Change"'), 'grouped columns are disambiguated in the header');
 assert.ok(lines[0].includes('"Financial — ROI %"'));
 assert.equal(lines[0].split(',').length, FIGURE_COLUMNS.length);
 assert.equal(lines[1].split(',').length, FIGURE_COLUMNS.length, 'every row has the full column count');
-assert.ok(lines[1].startsWith('"INIT-01","Admissions triage","Productivity","drafting time","40","12","70","–"'));
+assert.ok(lines[1].startsWith('"INIT-01","Admissions triage","Productivity","drafting time","minutes","40","12","70","–"'));
 assert.ok(lines[2].includes('"1299","15588","289.7","3.1"'));
 // A name containing a comma and quotes must not break the row.
 const tricky = figureRowsToCsv(

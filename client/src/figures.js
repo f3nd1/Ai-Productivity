@@ -5,6 +5,7 @@
 // cards, Export block and Overview use. Nothing here re-derives a number, so
 // this table can't drift from what an initiative's own page shows.
 import { computeResult } from './calc.js';
+import { resolvedUnit } from './export.js';
 import { toCsv } from './csv.js';
 
 export const TYPE_LABEL = {
@@ -20,6 +21,10 @@ export const FIGURE_COLUMNS = [
   { key: 'initiative', label: 'Initiative name', group: null },
   { key: 'type', label: 'Type', group: null },
   { key: 'metric', label: 'Metric / Cost category', group: null },
+  // One shared Unit column rather than one per group: a row is only ever of one
+  // type, so three would be mostly dashes and three times as wide. Financial
+  // rows read 'SGD', which is what their money columns are denominated in.
+  { key: 'unit', label: 'Unit', group: null, text: true },
 
   { key: 'prodBefore', label: 'Before', group: 'Productivity', numeric: true },
   { key: 'prodAfter', label: 'After', group: 'Productivity', numeric: true },
@@ -60,6 +65,7 @@ export function buildFigureRows({ initiatives = [], results = [] }) {
       typeLabel: TYPE_LABEL[type] || type,
       // Financial results describe a cost category rather than a metric.
       metric: (type === 'financial' ? f.costCategory : f.metric) || '—',
+      unit: (type === 'financial' ? 'SGD' : resolvedUnit(f).trim()) || '—',
       // Every group is null unless this row is of that type — the UI and the
       // CSV both render null as an en dash.
       prodBefore: null,

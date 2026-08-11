@@ -36,6 +36,23 @@ The field provides common UCC department suggestions but remains editable, so a 
 A full Vite production build was not completed because dependency installation timed out in the verification environment.
 
 
+## August 2026, Unit column in the Figures table
+
+No migration.
+
+The Figures table showed before/after values with no indication of what they
+measured — 40 to 12 could have been minutes, hours or errors. There's now a
+**Unit** column next to Metric / Cost category, filled for every row:
+
+- Productivity and Operational show the result's own unit (minutes, %, count,
+  or whatever custom unit was entered).
+- Financial shows SGD, which is what its money columns are denominated in.
+- A result with no unit set shows a dash.
+
+One shared column rather than one per group: a row is only ever of one type, so
+three Unit columns would have been mostly dashes and three times as wide. It
+sorts like any other column and is included in the CSV export.
+
 ## August 2026, Export block saves + print several initiatives at once
 
 No migration.

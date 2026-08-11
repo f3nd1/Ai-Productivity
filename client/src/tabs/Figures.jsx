@@ -134,7 +134,7 @@ export default function Figures({ initiatives, results }) {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[1180px] text-sm">
+            <table className="w-full min-w-[1260px] text-sm">
               <thead>
                 <tr className="text-left text-[10px] uppercase tracking-[0.14em] text-slate-500">
                   {groups.map((g, i) => (

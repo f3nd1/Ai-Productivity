@@ -150,7 +150,7 @@ const printMoney = (n) =>
 const orDash = (v) => (v === '' || v === null || v === undefined ? '—' : String(v));
 // Legacy rows stored the literal 'other' plus a separate otherUnit; newer rows
 // store the resolved text directly in `unit`.
-const resolvedUnit = (f) => (f.unit === 'other' ? f.otherUnit || '' : f.unit || '');
+export const resolvedUnit = (f) => (f.unit === 'other' ? f.otherUnit || '' : f.unit || '');
 
 // Section C results as a real table for the print document. Financial results
 // have no before/after pair, so they get their own columns rather than being
