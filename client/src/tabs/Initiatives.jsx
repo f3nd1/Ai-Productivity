@@ -8,12 +8,15 @@ import { DEPARTMENTS, STATUSES, DEFAULT_STATUS, STATUS_TONE } from './Initiative
 // post-fix this reflects real evidence, not just text sitting in a field.
 const LOW_COMPLETENESS = 0.4;
 
+// Recently updated leads: it's the default, and picking up where you left off
+// is the usual reason for opening the list.
 const SORTS = {
+  updated: 'Recently updated',
   name: 'Name (A–Z)',
   completeDesc: 'Most complete',
   completeAsc: 'Least complete',
-  updated: 'Recently updated',
 };
+const DEFAULT_SORT = 'updated';
 
 function Initials({ name }) {
   const letters = (name || 'AI')
@@ -93,7 +96,7 @@ export default function Initiatives({ initiatives, results, sectionD, reload, on
   const [query, setQuery] = useState('');
   const [department, setDepartment] = useState('all');
   const [status, setStatus] = useState('all');
-  const [sort, setSort] = useState('name');
+  const [sort, setSort] = useState(DEFAULT_SORT);
 
   // Score every initiative once, then search/filter/sort over the result.
   const scored = useMemo(
