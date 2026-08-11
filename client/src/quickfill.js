@@ -141,13 +141,12 @@ export function proposalToFields(p) {
     after: p.after ?? '',
   };
   if (p.type === 'productivity') {
-    // Read the direction off the stated numbers rather than defaulting to
-    // 'higher', which would flag a genuine reduction as an error. This is
+    // Read the direction off the stated numbers where there are any — that's
     // mechanical from the figures given, not an assumption about intent, and
-    // the user can flip it on the card.
-    if (fields.before !== '' && fields.after !== '' && p.after !== null && p.before !== null) {
-      fields.direction = p.after < p.before ? 'lower' : 'higher';
-    }
+    // still editable on the card. With no figures to read, fall back to the
+    // same "Lower is better" a hand-added card starts on.
+    const haveBoth = fields.before !== '' && fields.after !== '' && p.before !== null && p.after !== null;
+    fields.direction = haveBoth ? (p.after < p.before ? 'lower' : 'higher') : 'lower';
   }
   return fields;
 }

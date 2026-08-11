@@ -133,10 +133,12 @@ const prodUp = proposalToFields({ type: 'productivity', metricOrCategory: 'throu
 assert.equal(prodUp.direction, 'higher');
 assert.equal(computeResult('productivity', prodUp).warning, null);
 
-// Missing numbers leave direction unset rather than guessed.
+// With no figures to read a direction from, it starts on the same default a
+// hand-added card does. The figures themselves are still left blank.
 const prodPartial = proposalToFields({ type: 'productivity', metricOrCategory: 'speed', before: null, after: null, unit: '', note: 'faster' });
-assert.equal(prodPartial.direction, undefined);
+assert.equal(prodPartial.direction, 'lower');
 assert.equal(prodPartial.before, '');
+assert.equal(prodPartial.after, '');
 
 // Financial with NO stated saving: still no money figure invented.
 const fin = proposalToFields({ type: 'financial', metricOrCategory: 'Labour cost', monthlySaving: null, note: 'n' });

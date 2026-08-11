@@ -204,10 +204,20 @@ export default function InitiativePage({ initiative, results, reload, onBack }) 
   // ---- Section C editing (flows into the page-level save) ----
   const changeResult = (idx, next) => setCResults((list) => list.map((r, i) => (i === idx ? next : r)));
   // Type comes from the Section C sub-section the add button belongs to.
+  // A new productivity result starts at "Lower is better": most metrics tracked
+  // here are times and error counts, where the improvement is a fall. The value
+  // is written into fields rather than left to a fallback, so the card, the
+  // calculator and the saved row can't disagree — and so existing results,
+  // which have no stored direction, keep computing exactly as they do now.
   const addResult = (type) =>
     setCResults((list) => [
       ...list,
-      { _key: `new-${(keyCounter.current += 1)}`, initiative_id: initiative.id, type, fields: {} },
+      {
+        _key: `new-${(keyCounter.current += 1)}`,
+        initiative_id: initiative.id,
+        type,
+        fields: type === 'productivity' ? { direction: 'lower' } : {},
+      },
     ]);
   const deleteResult = async (idx) => {
     const r = stateRef.current.cResults[idx];
