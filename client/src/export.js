@@ -183,6 +183,27 @@ export function printResultRows(type, results) {
   };
 }
 
+// The four export text fields for one initiative: whatever was saved, else the
+// assembled-from-data build. One helper so the Export card, the print document
+// and a multi-initiative print all show the same thing.
+export function exportFieldsFor(initiative, linkedResults = [], saved = null) {
+  const has = (k) => typeof saved?.[k] === 'string' && saved[k].trim() !== '';
+  return {
+    finding: has('finding') ? saved.finding : buildFinding(initiative),
+    // Root Cause & Resolution has no plain-text source — it's an analysis.
+    rootCause: has('rootCause') ? saved.rootCause : '',
+    actionTaken: has('actionTaken') ? saved.actionTaken : buildActionTaken(initiative, linkedResults),
+    generalNotes: has('generalNotes') ? saved.generalNotes : buildGeneralNotes(linkedResults, initiative),
+  };
+}
+
+// Was anything actually saved for this initiative's export block?
+export function hasSavedExport(saved) {
+  return Boolean(
+    saved && ['finding', 'rootCause', 'actionTaken', 'generalNotes'].some((k) => (saved[k] || '').trim())
+  );
+}
+
 // ---------- AI "Generate with AI" for the export block ----------
 
 // Everything the model is allowed to draw on for one initiative: its B fields

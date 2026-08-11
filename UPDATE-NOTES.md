@@ -36,6 +36,30 @@ The field provides common UCC department suggestions but remains editable, so a 
 A full Vite production build was not completed because dependency installation timed out in the verification environment.
 
 
+## August 2026, Export block saves + print several initiatives at once
+
+No migration.
+
+**Bug fix: the Export block never saved.** Finding, Root Cause & Resolution,
+Action Taken and General Notes were local to the card, so every edit and every
+AI draft was lost on refresh. They now save with the page's normal Save and
+autosave, stored alongside the generated C answers.
+
+Only a block you've actually edited or generated is saved. One you've never
+touched keeps rebuilding from your current data, so adding a Section C result
+still updates General Notes rather than freezing an old snapshot.
+
+**Print several initiatives into one PDF.** The Initiatives list gained a Print
+button:
+
+- Tick the checkbox on any cards to print just those — the button reads
+  "Print N selected".
+- Tick nothing and it reads "Print all N shown", printing whatever the current
+  search, department and status filters are showing.
+
+Each initiative starts on a fresh page, with one repeating footer across the
+whole document rather than one per initiative.
+
 ## August 2026, Initiative status
 
 ### Required Supabase migration (additive, safe)

@@ -159,14 +159,27 @@ export function PrintDocument({ initiative, results, answers, notApplicable, exp
         </section>
       ))}
 
-      {/* Fixed, so the browser repeats it on every printed page. */}
-      <footer className="print-footer">United Ceres College — Confidential</footer>
     </article>
   );
 }
 
-// Portals to <body> so the document sits outside #root — print.css then hides
+// One or more documents plus a single footer. The footer is position:fixed so
+// the browser repeats it on every page — rendering one per document would stack
+// N identical copies in the same spot.
+function PrintSheet({ items }) {
+  return (
+    <div className="print-sheet">
+      {items.map((item) => (
+        <PrintDocument key={item.initiative.id} {...item} />
+      ))}
+      <footer className="print-footer">United Ceres College — Confidential</footer>
+    </div>
+  );
+}
+
+// Portals to <body> so the sheet sits outside #root — print.css then hides
 // #root entirely, guaranteeing no app chrome can leak into the output.
-export default function PrintView(props) {
-  return createPortal(<PrintDocument {...props} />, document.body);
+// Takes either one initiative's props, or `items` for a multi-initiative print.
+export default function PrintView({ items, ...single }) {
+  return createPortal(<PrintSheet items={items || [single]} />, document.body);
 }

@@ -172,6 +172,12 @@ export default function InitiativePage({ initiative, results, reload, onBack }) 
   // exactly what's on screen. Mounted only while printing, so the live UI is
   // untouched the rest of the time.
   const [exportFields, setExportFields] = useState({});
+  // Saved export text, loaded before the card mounts so it can seed from it.
+  // `exportDirty` gates persistence: an untouched block isn't written, so it
+  // keeps re-deriving from current data rather than freezing a snapshot.
+  const [savedExport, setSavedExport] = useState(null);
+  const [exportDirty, setExportDirty] = useState(false);
+  const [exportLoaded, setExportLoaded] = useState(false);
   const [printing, setPrinting] = useState(false);
   const [quickFill, setQuickFill] = useState(false);
   const quickFillRef = useRef(false);
@@ -186,14 +192,30 @@ export default function InitiativePage({ initiative, results, reload, onBack }) 
   const [allBusy, setAllBusy] = useState(false);
   const [genSummary, setGenSummary] = useState(null);
 
-  // Load saved final answers on open.
+  // Load saved answers on open. The row holds the generated C answers plus, under
+  // `export`, the four Quality Action Resolution fields.
   useEffect(() => {
-    api.getFinalAnswers(initiative.id).then((a) => setAnswers(a || {})).catch(() => {});
+    api
+      .getFinalAnswers(initiative.id)
+      .then((a) => {
+        const { export: savedFields, ...cAnswers } = a || {};
+        setAnswers(cAnswers);
+        setSavedExport(savedFields || null);
+      })
+      .catch(() => {})
+      .finally(() => setExportLoaded(true));
   }, [initiative.id]);
+
+  // Everything written to final_answers: the C answers, plus the export block
+  // once it has actually been edited or generated.
+  const answersPayload = (cur) => ({
+    ...pickCAnswers(cur.answers),
+    ...(cur.exportDirty ? { export: cur.exportFields } : {}),
+  });
 
   // Latest state for the debounced autosave / save mutex (avoids stale closures).
   const stateRef = useRef();
-  stateRef.current = { info, cResults, answers, notApplicable };
+  stateRef.current = { info, cResults, answers, notApplicable, exportFields, exportDirty };
 
   const liveInitiative = { ...initiative, ...info };
   const evidenceCtx = { initiative: liveInitiative, results: cResults };
@@ -248,7 +270,7 @@ export default function InitiativePage({ initiative, results, reload, onBack }) 
     }
     try {
       await api.updateInitiative(initiative.id, { ...cur.info, not_applicable: cur.notApplicable || {} });
-      await api.saveFinalAnswers(initiative.id, pickCAnswers(cur.answers));
+      await api.saveFinalAnswers(initiative.id, answersPayload(cur));
       // Create new results / update existing; collect ids for the created ones.
       const idByKey = {};
       for (const r of cur.cResults) {
@@ -309,7 +331,7 @@ export default function InitiativePage({ initiative, results, reload, onBack }) 
   // React state, which may not have re-rendered yet after an await.
   async function persistAnswers(answersObj) {
     try {
-      await api.saveFinalAnswers(initiative.id, pickCAnswers(answersObj));
+      await api.saveFinalAnswers(initiative.id, answersPayload({ ...stateRef.current, answers: answersObj }));
     } catch (e) {
       setErr(`Could not save generated answers: ${e.message}`);
     }
@@ -485,11 +507,17 @@ export default function InitiativePage({ initiative, results, reload, onBack }) 
           <h2 className="section-title mb-3 mt-1">Export to ERPNext Quality Action Resolution</h2>
           {/* Section D is deliberately not passed: it's one shared answer for
               the whole submission, so it has no place in a per-initiative export. */}
-          <ExportCard
-            initiative={liveInitiative}
-            results={linkedResults}
-            onFieldsChange={setExportFields}
-          />
+          {exportLoaded && (
+            <ExportCard
+              initiative={liveInitiative}
+              results={linkedResults}
+              saved={savedExport}
+              onFieldsChange={({ fields, dirty }) => {
+                setExportFields(fields);
+                setExportDirty(dirty);
+              }}
+            />
+          )}
         </section>
 
         {quickFill && (

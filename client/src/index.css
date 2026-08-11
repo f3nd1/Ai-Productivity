@@ -78,7 +78,8 @@
    reset and colour scales are tuned for screens, and this needs print units
    (pt), @page margins and a repeating footer.
    ============================================================ */
-.print-doc {
+.print-doc,
+.print-sheet {
   display: none;
 }
 
@@ -99,6 +100,16 @@
   @page {
     size: A4;
     margin: 20mm 18mm 22mm;
+  }
+
+  .print-sheet {
+    display: block;
+  }
+
+  /* Each initiative after the first starts on a fresh page. */
+  .print-doc + .print-doc {
+    break-before: page;
+    page-break-before: always;
   }
 
   .print-doc {

@@ -2,9 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { api } from '../api.js';
 import {
   resultsFor,
-  buildFinding,
-  buildActionTaken,
-  buildGeneralNotes,
+  exportFieldsFor,
+  hasSavedExport,
   buildExportEvidence,
   parseExportDraft,
   financialManDayRateDefault,
@@ -67,20 +66,28 @@ function NumField({ label, value, onChange, note }) {
   );
 }
 
-// `onFieldsChange` reports the four text fields up so the print document shows
-// what's actually on screen — including AI-generated and hand-edited text —
-// rather than re-deriving the plain-concatenation defaults.
-export function ExportCard({ initiative, results, onFieldsChange }) {
+// `saved` is this initiative's previously saved export text, or null.
+// `onFieldsChange` reports the four fields up with a `dirty` flag: the page
+// persists them only once they've actually been written or generated, so an
+// untouched block keeps re-deriving from current data instead of freezing an
+// auto-built snapshot.
+export function ExportCard({ initiative, results, saved, onFieldsChange }) {
   const linked = useMemo(() => resultsFor(initiative.id, results), [initiative.id, results]);
   const showNumbers = useMemo(() => hasFinancialResult(linked), [linked]);
 
-  // Lazy-initialised from auto-fill rules; stays local so hand edits survive re-renders.
-  const [finding, setFinding] = useState(() => buildFinding(initiative));
-  // Root Cause & Resolution has no plain-text source — it's an analysis, so it
-  // starts empty and "Generate with AI" fills it.
-  const [rootCause, setRootCause] = useState('');
-  const [actionTaken, setActionTaken] = useState(() => buildActionTaken(initiative, linked));
-  const [generalNotes, setGeneralNotes] = useState(() => buildGeneralNotes(linked, initiative));
+  // Seeded once from saved text where there is any, else from the assembled
+  // build. Stays local so hand edits survive re-renders.
+  const seed = useMemo(() => exportFieldsFor(initiative, linked, saved), []); // eslint-disable-line react-hooks/exhaustive-deps
+  const [finding, setFinding] = useState(seed.finding);
+  const [rootCause, setRootCause] = useState(seed.rootCause);
+  const [actionTaken, setActionTaken] = useState(seed.actionTaken);
+  const [generalNotes, setGeneralNotes] = useState(seed.generalNotes);
+  // Already-saved text counts as dirty: it must keep being saved, not revert.
+  const [dirty, setDirty] = useState(() => hasSavedExport(saved));
+  const edited = (setter) => (v) => {
+    setDirty(true);
+    setter(v);
+  };
   const [manDayRate, setManDayRate] = useState(() => financialManDayRateDefault(linked));
   const ba = useMemo(() => productivityBeforeAfter(linked), [linked]);
   const [beforeTime, setBeforeTime] = useState(ba.before);
@@ -95,8 +102,8 @@ export function ExportCard({ initiative, results, onFieldsChange }) {
     : manualNote;
 
   useEffect(() => {
-    onFieldsChange?.({ finding, rootCause, actionTaken, generalNotes });
-  }, [finding, rootCause, actionTaken, generalNotes, onFieldsChange]);
+    onFieldsChange?.({ fields: { finding, rootCause, actionTaken, generalNotes }, dirty });
+  }, [finding, rootCause, actionTaken, generalNotes, dirty, onFieldsChange]);
 
   const copyAll = () =>
     formatCopyAll(
@@ -121,6 +128,7 @@ export function ExportCard({ initiative, results, onFieldsChange }) {
       if (!draft.finding && !draft.rootCause && !draft.actionTaken && !draft.generalNotes) {
         setGenErr('The AI reply could not be split into the four fields. Nothing was changed.');
       } else {
+        setDirty(true);
         setGenDone(true);
       }
     } catch (e) {
@@ -153,10 +161,10 @@ export function ExportCard({ initiative, results, onFieldsChange }) {
       {genErr && <p className="mb-4 rounded-xl bg-red-50 px-3 py-2 text-sm text-red-600">{genErr}</p>}
 
       <div className="space-y-4">
-        <TextField label="Finding" value={finding} onChange={setFinding} />
-        <TextField label="Root Cause & Resolution" value={rootCause} onChange={setRootCause} />
-        <TextField label="Action Taken" value={actionTaken} onChange={setActionTaken} />
-        <TextField label="General Notes" value={generalNotes} onChange={setGeneralNotes} />
+        <TextField label="Finding" value={finding} onChange={edited(setFinding)} />
+        <TextField label="Root Cause & Resolution" value={rootCause} onChange={edited(setRootCause)} />
+        <TextField label="Action Taken" value={actionTaken} onChange={edited(setActionTaken)} />
+        <TextField label="General Notes" value={generalNotes} onChange={edited(setGeneralNotes)} />
       </div>
 
       {showNumbers && (

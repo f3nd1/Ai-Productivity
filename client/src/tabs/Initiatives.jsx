@@ -1,7 +1,9 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { api } from '../api.js';
 import { Btn, TextInput } from '../ui.jsx';
 import { completeness } from '../overview.js';
+import { resultsFor, exportFieldsFor } from '../export.js';
+import PrintView from './PrintView.jsx';
 import { DEPARTMENTS, STATUSES, DEFAULT_STATUS, STATUS_TONE } from './InitiativePage.jsx';
 
 // Below this share of the 9 questions an initiative is flagged in the list —
@@ -97,6 +99,22 @@ export default function Initiatives({ initiatives, results, sectionD, reload, on
   const [department, setDepartment] = useState('all');
   const [status, setStatus] = useState('all');
   const [sort, setSort] = useState(DEFAULT_SORT);
+  // Ticked cards. Empty means "no explicit pick", and the button prints
+  // everything currently shown instead — so the existing filters double as a
+  // coarse selection without needing every box ticked.
+  const [picked, setPicked] = useState(() => new Set());
+  const [printing, setPrinting] = useState(null); // null | array of print items
+
+  useEffect(() => {
+    if (!printing) return undefined;
+    const done = () => setPrinting(null);
+    window.addEventListener('afterprint', done);
+    const frame = requestAnimationFrame(() => window.print());
+    return () => {
+      window.removeEventListener('afterprint', done);
+      cancelAnimationFrame(frame);
+    };
+  }, [printing]);
 
   // Score every initiative once, then search/filter/sort over the result.
   const scored = useMemo(
@@ -139,6 +157,35 @@ export default function Initiatives({ initiatives, results, sectionD, reload, on
     };
     return [...rows].sort(sorters[sort] || byName);
   }, [scored, query, department, status, sort]);
+
+  const toPrint = picked.size
+    ? visible.filter(({ i }) => picked.has(i.id))
+    : visible;
+
+  // Everything a document needs comes off the initiative row and the results
+  // already loaded — the generated C answers and the saved export text both
+  // live in final_answers, so no extra fetch is needed.
+  function printItems() {
+    return toPrint.map(({ i }) => {
+      const linked = resultsFor(i.id, results);
+      const { export: savedExport, ...cAnswers } = i.final_answers || {};
+      return {
+        initiative: i,
+        results: linked,
+        answers: cAnswers,
+        notApplicable: i.not_applicable || {},
+        exportFields: exportFieldsFor(i, linked, savedExport),
+      };
+    });
+  }
+
+  const togglePick = (id) =>
+    setPicked((s) => {
+      const next = new Set(s);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
 
   async function create(name, dept) {
     setCreating(true);
@@ -186,10 +233,26 @@ export default function Initiatives({ initiatives, results, sectionD, reload, on
           <h2 className="section-title mt-1">Your AI initiatives</h2>
           <p className="muted-copy mt-1">Open an initiative to add evidence, measurable outcomes and adoption details.</p>
         </div>
-        <Btn variant="primary" onClick={() => setPrompt({ mode: 'new' })}>
-          <span className="mr-1.5 text-lg leading-none">+</span>
-          Add initiative
-        </Btn>
+        <div className="flex flex-wrap items-center gap-2">
+          {initiatives.length > 0 && (
+            <Btn onClick={() => setPrinting(printItems())} disabled={toPrint.length === 0 || Boolean(printing)}>
+              {printing
+                ? 'Preparing…'
+                : picked.size
+                  ? `Print ${picked.size} selected`
+                  : `Print all ${toPrint.length} shown`}
+            </Btn>
+          )}
+          {picked.size > 0 && (
+            <Btn variant="ghost" onClick={() => setPicked(new Set())}>
+              Clear selection
+            </Btn>
+          )}
+          <Btn variant="primary" onClick={() => setPrompt({ mode: 'new' })}>
+            <span className="mr-1.5 text-lg leading-none">+</span>
+            Add initiative
+          </Btn>
+        </div>
       </div>
 
       {err && <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-600">{err}</p>}
@@ -283,6 +346,19 @@ export default function Initiatives({ initiatives, results, sectionD, reload, on
               }`}
             >
               <div className="flex items-start gap-3">
+                {/* Stops the click reaching the card, which would open it. */}
+                <label
+                  className="mt-1 flex shrink-0 cursor-pointer items-center"
+                  onClick={(e) => e.stopPropagation()}
+                  title="Select for printing"
+                >
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-400"
+                    checked={picked.has(i.id)}
+                    onChange={() => togglePick(i.id)}
+                  />
+                </label>
                 <Initials name={i.name} />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-start justify-between gap-3">
@@ -380,6 +456,8 @@ export default function Initiatives({ initiatives, results, sectionD, reload, on
           );
         })}
       </div>
+
+      {printing && <PrintView items={printing} />}
 
       {prompt && (
         <NamePrompt
