@@ -229,7 +229,7 @@ function TypeFields({ type, f, set, tightenId }) {
           <span className="field-label">Direction</span>
           <select
             className="field-control"
-            value={f.direction || 'higher'}
+            value={f.direction || 'lower'}
             onChange={(e) => set('direction', e.target.value)}
           >
             <option value="higher">Higher is better</option>

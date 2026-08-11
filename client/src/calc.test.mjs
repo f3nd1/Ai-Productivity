@@ -17,6 +17,16 @@ p = productivity({ metric: 'x', before: 10, after: 20, direction: 'lower' });
 assert.match(p.warning, /unexpected direction/);
 assert.equal(p.sentence, '');
 
+// Direction defaults to 'lower' — most metrics here are times and error counts,
+// where the improvement is a fall. A result with no stored direction reads as a
+// reduction, not as an error.
+p = productivity({ metric: 'drafting time', before: 40, after: 12 });
+assert.equal(p.warning, null);
+assert.equal(p.label, 'reduction');
+assert.equal(p.sentence, 'Reduced drafting time by 70%');
+// The percentage itself does not depend on direction — only the wording does.
+assert.equal(p.pct, productivity({ metric: 'x', before: 40, after: 12, direction: 'higher' }).pct);
+
 // Financial: time-based 10h * $30 * 4.33 = $1299/mo, $15,588/yr
 let fin = financial({ timeBased: true, hoursPerWeek: 10, rate: 30 });
 assert.equal(fin.metrics[0].value, '$1,299');

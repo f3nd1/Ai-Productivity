@@ -12,7 +12,10 @@ export function productivity(f) {
   const before = num(f.before);
   const after = num(f.after);
   const metric = (f.metric || 'the metric').trim();
-  const dir = f.direction || 'higher'; // 'higher' | 'lower'
+  // Lower is the default: most productivity metrics recorded here are times and
+  // error counts, where the improvement is a fall. Results saved without an
+  // explicit direction therefore read as reductions.
+  const dir = f.direction || 'lower'; // 'higher' | 'lower'
   const out = { metrics: [], warning: null, sentence: '' };
   if (!Number.isFinite(before) || !Number.isFinite(after)) return out;
   if (before === 0) {
