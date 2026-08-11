@@ -36,6 +36,33 @@ The field provides common UCC department suggestions but remains editable, so a 
 A full Vite production build was not completed because dependency installation timed out in the verification environment.
 
 
+## August 2026, Initiative status
+
+### Required Supabase migration (additive, safe)
+
+```sql
+alter table initiatives add column if not exists status text not null default 'Draft';
+update initiatives set status = 'Draft' where status is null;
+```
+
+Nothing is deleted. Postgres fills every existing initiative with 'Draft' as it
+adds the column, so no data is touched and nothing needs re-entering. The same
+block is at the end of `supabase-schema.sql`.
+
+### What changed
+
+- Each initiative has a **Status**: Draft, In Progress or Done. It sits beside
+  the initiative name in Initiative details and saves through the page's
+  existing Save and blur autosave — no separate action.
+- The Initiatives list shows it as a badge on each card: muted for Draft,
+  indigo for In Progress, green for Done.
+- A **Status filter** sits next to the department filter, defaulting to "All
+  statuses". It stacks with search, department and sort, and "Clear filters"
+  resets it too.
+
+Until the migration is run the app still works — every initiative simply reads
+as Draft, and changing the status will fail to save.
+
 ## August 2026, Section D out of the printed PDF
 
 No migration — client only.

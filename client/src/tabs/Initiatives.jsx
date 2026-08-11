@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { api } from '../api.js';
 import { Btn, TextInput } from '../ui.jsx';
 import { completeness } from '../overview.js';
-import { DEPARTMENTS } from './InitiativePage.jsx';
+import { DEPARTMENTS, STATUSES, DEFAULT_STATUS, STATUS_TONE } from './InitiativePage.jsx';
 
 // Below this share of the 9 questions an initiative is flagged in the list —
 // post-fix this reflects real evidence, not just text sitting in a field.
@@ -92,6 +92,7 @@ export default function Initiatives({ initiatives, results, sectionD, reload, on
   const [prompt, setPrompt] = useState(null); // null | {mode:'new'} | {mode:'duplicate', source}
   const [query, setQuery] = useState('');
   const [department, setDepartment] = useState('all');
+  const [status, setStatus] = useState('all');
   const [sort, setSort] = useState('name');
 
   // Score every initiative once, then search/filter/sort over the result.
@@ -115,6 +116,8 @@ export default function Initiatives({ initiatives, results, sectionD, reload, on
     const rows = scored.filter(({ i }) => {
       const name = (i.name || 'Untitled initiative').toLowerCase();
       if (q && !name.includes(q)) return false;
+      // Rows saved before the status column existed read as the default.
+      if (status !== 'all' && (i.status || DEFAULT_STATUS) !== status) return false;
       if (department === 'all') return true;
       if (department === '__unset__') return !i.department?.trim();
       return i.department?.trim() === department;
@@ -132,7 +135,7 @@ export default function Initiatives({ initiatives, results, sectionD, reload, on
         ) || byName(a, b),
     };
     return [...rows].sort(sorters[sort] || byName);
-  }, [scored, query, department, sort]);
+  }, [scored, query, department, status, sort]);
 
   async function create(name, dept) {
     setCreating(true);
@@ -189,7 +192,7 @@ export default function Initiatives({ initiatives, results, sectionD, reload, on
       {err && <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-600">{err}</p>}
 
       {initiatives.length > 0 && (
-        <div className="app-card grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="app-card grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-5">
           <label className="block lg:col-span-2">
             <span className="field-label">Search by name</span>
             <input
@@ -210,6 +213,15 @@ export default function Initiatives({ initiatives, results, sectionD, reload, on
             </select>
           </label>
           <label className="block">
+            <span className="field-label">Status</span>
+            <select className="field-control" value={status} onChange={(e) => setStatus(e.target.value)}>
+              <option value="all">All statuses</option>
+              {STATUSES.map((option) => (
+                <option key={option} value={option}>{option}</option>
+              ))}
+            </select>
+          </label>
+          <label className="block">
             <span className="field-label">Sort by</span>
             <select className="field-control" value={sort} onChange={(e) => setSort(e.target.value)}>
               {Object.entries(SORTS).map(([key, label]) => (
@@ -218,13 +230,14 @@ export default function Initiatives({ initiatives, results, sectionD, reload, on
             </select>
           </label>
           {filtered && (
-            <p className="text-xs text-slate-500 sm:col-span-2 lg:col-span-4">
+            <p className="text-xs text-slate-500 sm:col-span-2 lg:col-span-5">
               Showing {visible.length} of {initiatives.length} initiatives.{' '}
               <button
                 className="font-semibold text-indigo-600 hover:underline"
                 onClick={() => {
                   setQuery('');
                   setDepartment('all');
+                  setStatus('all');
                 }}
               >
                 Clear filters
@@ -282,6 +295,13 @@ export default function Initiatives({ initiatives, results, sectionD, reload, on
                         </h3>
                       </div>
                       <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                        <span
+                          className={`rounded-full px-2 py-1 font-semibold ring-1 ${
+                            STATUS_TONE[i.status || DEFAULT_STATUS] || STATUS_TONE[DEFAULT_STATUS]
+                          }`}
+                        >
+                          {i.status || DEFAULT_STATUS}
+                        </span>
                         <span
                           className={`rounded-full px-2 py-1 font-medium ${
                             i.department?.trim()

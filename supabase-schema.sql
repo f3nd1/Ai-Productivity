@@ -12,6 +12,8 @@ create table if not exists initiatives (
   -- Short read-only code (INIT-01, INIT-02, ...). The sequence and default that
   -- populate it are set up in the migration block at the end of this file.
   initiative_code text,
+  -- Workflow status: 'Draft' | 'In Progress' | 'Done'.
+  status text not null default 'Draft',
   b8_problem text,
   b9_significance text,
   b10_solution text,
@@ -197,3 +199,18 @@ alter table initiatives alter column initiative_code set default next_initiative
 
 -- Enforces the guarantee rather than trusting it.
 create unique index if not exists initiatives_initiative_code_key on initiatives (initiative_code);
+
+-- ============================================================
+-- MIGRATION — run manually, once, in the Supabase SQL editor.
+-- Adds a workflow status to each initiative: Draft / In Progress / Done.
+--
+-- Non-destructive. The column is NOT NULL with a default, so Postgres fills
+-- every existing row with 'Draft' as it adds it — no existing data is touched
+-- or lost, and nothing needs re-entering.
+--
+-- The follow-up UPDATE only matters if a nullable `status` column already
+-- existed from an earlier hand-edit, in which case `add column if not exists`
+-- would have skipped and left NULLs behind. Harmless otherwise.
+-- ============================================================
+alter table initiatives add column if not exists status text not null default 'Draft';
+update initiatives set status = 'Draft' where status is null;

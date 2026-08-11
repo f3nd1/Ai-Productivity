@@ -61,12 +61,14 @@ app.post('/api/initiatives', async (req, res) => {
   // initiative_code is deliberately NOT accepted from the client and never
   // inserted: the column's Postgres default pulls from a sequence, so the code
   // is allocated by the database and stays unique and sequential.
-  const { name, department, b8_problem, b9_significance, b10_solution, not_applicable } = req.body;
+  const { name, department, status, b8_problem, b9_significance, b10_solution, not_applicable } = req.body;
   const { data, error } = await supabase
     .from('initiatives')
     .insert({
       name,
       department,
+      // Omitted rather than sent as null, so the column default ('Draft') applies.
+      ...(status ? { status } : {}),
       b8_problem,
       b9_significance,
       b10_solution,
@@ -80,7 +82,7 @@ app.post('/api/initiatives', async (req, res) => {
 
 app.put('/api/initiatives/:id', async (req, res) => {
   if (!supabase) return needDb(res);
-  const { name, department, b8_problem, b9_significance, b10_solution, not_applicable } = req.body;
+  const { name, department, status, b8_problem, b9_significance, b10_solution, not_applicable } = req.body;
   if (!b8_problem || !b8_problem.trim()) return res.status(400).json({ error: 'B8 business problem is required.' });
   const patch = {
     name,
@@ -92,6 +94,8 @@ app.put('/api/initiatives/:id', async (req, res) => {
   };
   // Only overwrite the N/A declarations when the client actually sent them.
   if (not_applicable !== undefined) patch.not_applicable = not_applicable || {};
+  // Likewise status: a blank one must never wipe the column's NOT NULL value.
+  if (status) patch.status = status;
   const { data, error } = await supabase
     .from('initiatives')
     .update(patch)

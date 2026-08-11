@@ -11,6 +11,19 @@ import PrintView from './PrintView.jsx';
 import QuickFill from './QuickFill.jsx';
 import { applyInfoFields, proposalToFields } from '../quickfill.js';
 
+// Workflow status for one initiative. A short fixed list, not free text — it
+// drives the list badge and filter, so arbitrary values would fragment both.
+export const STATUSES = ['Draft', 'In Progress', 'Done'];
+export const DEFAULT_STATUS = 'Draft';
+
+// Badge styling per status, following the app's existing colour language:
+// muted slate for not-started, indigo accent for active, emerald for finished.
+export const STATUS_TONE = {
+  Draft: 'bg-slate-100 text-slate-600 ring-slate-200',
+  'In Progress': 'bg-indigo-50 text-indigo-700 ring-indigo-200',
+  Done: 'bg-emerald-50 text-emerald-700 ring-emerald-200',
+};
+
 export const DEPARTMENTS = [
   'Academic',
   'Administrative',
@@ -94,6 +107,18 @@ function InitiativeInfo({ info, setInfo, resultsContext }) {
           onChange={(e) => set('name')(e.target.value)}
           placeholder="e.g. Claude for Quality Action drafting"
         />
+        <label className="block">
+          <span className="field-label">Status</span>
+          <select
+            className="field-control"
+            value={info.status || DEFAULT_STATUS}
+            onChange={(e) => set('status')(e.target.value)}
+          >
+            {STATUSES.map((option) => (
+              <option key={option} value={option}>{option}</option>
+            ))}
+          </select>
+        </label>
         <div>
           <DepartmentField value={info.department || ''} onChange={set('department')} />
           {/* Department is easy to skip silently, so say so where it's set. */}
@@ -132,6 +157,7 @@ export default function InitiativePage({ initiative, results, reload, onBack }) 
   const [info, setInfo] = useState({
     name: initiative.name || '',
     department: initiative.department || '',
+    status: initiative.status || DEFAULT_STATUS,
     b8_problem: initiative.b8_problem || '',
     b9_significance: initiative.b9_significance || '',
     b10_solution: initiative.b10_solution || '',
